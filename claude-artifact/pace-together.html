@@ -1,0 +1,1171 @@
+<title>Pace Together 一起跑</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: phone-first race-day sheet — bibs for people, a course map, a live feed; two columns on wide screens */
+:root{
+  --bg:#EDEFEA; --surface:#FFFFFF; --surface-2:#E2E5DE; --ink:#131613; --muted:#5C6459; --line:#CBD0C6;
+  --accent:#E3402A; --accent-ink:#FFFFFF; --route:#2149D1; --ok:#1C8547; --warn:#A86A12; --danger:#C2261F;
+  --pin:#B9BEB5; --shadow:0 1px 0 rgba(19,22,19,.06),0 6px 18px -10px rgba(19,22,19,.25);
+  --display:"Barlow Condensed","Noto Sans TC","PingFang TC",sans-serif;
+  --body:"Noto Sans TC",-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1210; --surface:#181C19; --surface-2:#222823; --ink:#ECEFE9; --muted:#9AA396; --line:#2F3630;
+  --accent:#FF5B40; --accent-ink:#1A0602; --route:#7E9CFF; --ok:#4CC27E; --warn:#E3AA4D; --danger:#FF6E66;
+  --pin:#3A423B; --shadow:0 1px 0 rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1210; --surface:#181C19; --surface-2:#222823; --ink:#ECEFE9; --muted:#9AA396; --line:#2F3630;
+  --accent:#FF5B40; --accent-ink:#1A0602; --route:#7E9CFF; --ok:#4CC27E; --warn:#E3AA4D; --danger:#FF6E66;
+  --pin:#3A423B; --shadow:0 1px 0 rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.7); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--route);outline-offset:2px}
+a{color:var(--route)}
+.wrap{max-width:1120px;margin:0 auto}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:18px 14px}
+.brand{display:flex;align-items:baseline;gap:10px;background:none;border:0;padding:0}
+.brand b{font-family:var(--display);font-weight:800;font-style:italic;font-size:28px;letter-spacing:.01em;line-height:1;text-transform:uppercase}
+.brand b i{color:var(--accent);font-style:italic}
+.brand span{color:var(--muted);font-size:13px}
+.who{font-size:13px;color:var(--muted);text-align:right}
+h1,h2,h3{text-wrap:balance;margin:0}
+h2{font-size:17px;font-weight:900;letter-spacing:.01em}
+.eyebrow{font-family:var(--display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow);min-width:0}
+.stack{display:flex;flex-direction:column;gap:14px}
+.cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-family:var(--display);font-variant-numeric:tabular-nums;font-weight:700}
+.banner{border-radius:10px;padding:10px 12px;font-size:14px;border:1px solid var(--line);background:var(--surface-2)}
+.banner.danger{border-color:var(--danger);color:var(--danger);background:color-mix(in srgb,var(--danger) 10%,var(--surface))}
+.banner.warn{border-color:var(--warn);color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--surface))}
+
+/* forms */
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field>label{font-size:13px;font-weight:700}
+.field .hint{font-size:12px;color:var(--muted)}
+input[type=text],input[type=number],input[type=datetime-local],textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-width:0}
+input:focus,textarea:focus{border-color:var(--route);outline:none}
+textarea{resize:vertical;min-height:64px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:900;font-size:15px;letter-spacing:.02em;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.dark{background:var(--ink);color:var(--bg)}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.block{width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* bibs */
+.bibs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.bib{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 12px 10px;min-width:0}
+.bib::before,.bib::after{content:"";position:absolute;top:6px;width:7px;height:7px;border-radius:50%;background:var(--pin);box-shadow:0 calc(100% + 0px) 0 transparent}
+.bib::before{left:6px}.bib::after{right:6px}
+.bib .no{font-family:var(--display);font-weight:800;font-size:40px;line-height:.9;color:var(--c,var(--accent))}
+.bib .nm{font-weight:900;font-size:15px;margin-top:4px;overflow-wrap:anywhere}
+.bib .meta{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.bib.me{outline:2px solid var(--ink);outline-offset:-2px}
+.bib.out{opacity:.5}
+.bib.out .nm{text-decoration:line-through}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid currentColor;margin-top:6px;white-space:nowrap}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}.pill.danger{color:var(--danger)}.pill.muted{color:var(--muted)}.pill.route{color:var(--route)}
+
+/* map */
+.map{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
+.map svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);padding:8px 2px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:18px;height:4px;border-radius:2px;background:var(--route);display:inline-block}
+
+/* run list */
+.runs{display:grid;gap:10px}
+.runcard{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:100%}
+.runcard:hover{border-color:var(--ink)}
+.date{font-family:var(--display);text-align:center;line-height:1;min-width:52px;border-right:1px solid var(--line);padding-right:12px}
+.date b{display:block;font-size:30px;font-weight:800}
+.date small{font-size:12px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+
+/* live */
+.clock{font-family:var(--display);font-weight:800;font-size:64px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.quick{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.quick button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 10px;font-weight:700;text-align:left;min-height:56px}
+.quick button:hover{border-color:var(--ink)}
+.quick button.hot{border-color:var(--danger);color:var(--danger)}
+.feed{display:flex;flex-direction:column;gap:0;max-height:520px;overflow:auto}
+.ev{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.ev:last-child{border-bottom:0}
+.ev .t{font-family:var(--display);font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;font-size:14px;padding-top:1px}
+.ev .who{font-weight:900;color:var(--c,var(--ink));text-align:left;font-size:14px}
+.ev.alert .tx{color:var(--danger);font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{border-left:3px solid var(--accent);padding-left:10px}
+.stat b{display:block;font-family:var(--display);font-weight:800;font-size:30px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px 9px;font-weight:900;font-size:15px;color:var(--muted);margin-bottom:-1px}
+.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+.lb{display:flex;flex-direction:column}
+.lbrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line)}
+.lbrow:last-child{border-bottom:0}
+.lbrow .rk{font-family:var(--display);font-weight:800;font-size:34px;line-height:1;text-align:center;color:var(--muted)}
+.lbrow.top .rk{color:var(--accent)}
+.lbrow .nm{font-weight:900;overflow-wrap:anywhere}
+.lbrow .bar{height:6px;border-radius:3px;background:var(--surface-2);margin-top:6px;overflow:hidden}
+.lbrow .bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.lbrow .kmv{font-family:var(--display);font-weight:800;font-size:26px;font-variant-numeric:tabular-nums;text-align:right;line-height:1}
+.lbrow .kmv small{display:block;font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.06em}
+.lbrow.me .nm::after{content:" (你)";color:var(--muted);font-weight:500;font-size:13px}
+.monthnav{display:flex;align-items:center;gap:8px}
+.monthnav button{border:1px solid var(--line);background:var(--surface);border-radius:8px;width:34px;height:34px;font-weight:900}
+.checkrow{display:flex;gap:8px;align-items:center;font-size:14px;font-weight:700;cursor:pointer}
+.checkrow input{width:18px;height:18px;accent-color:var(--accent)}
+.series{display:flex;flex-wrap:wrap;gap:8px}
+.series button{border:1px solid var(--ink);background:var(--surface);border-radius:10px;padding:8px 12px;text-align:left;min-width:0}
+.series button b{display:block;font-size:14px}
+.series button span{font-size:12px;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;opacity:0;transition:.25s;pointer-events:none;max-width:calc(100% - 32px);z-index:20}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.cardout{display:flex;flex-direction:column;gap:10px}
+.cardout canvas,.cardout img{width:100%;max-width:420px;height:auto;border-radius:8px;border:1px solid var(--line)}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;max-width:100%}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}.toast{transition:none}}
+.kbd{font-family:var(--display);font-weight:700}
+details summary{cursor:pointer;font-weight:700;font-size:14px}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <button class="brand" id="homeBtn" type="button" aria-label="回到首頁"><b>Pace <i>Together</i></b><span>一起跑</span></button>
+    <div class="who" id="who"></div>
+  </div>
+  <nav class="tabs" id="tabs" aria-label="主選單"></nav>
+  <div id="app"></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ===================== 基本工具 ===================== */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PURPOSES = [["train","練跑"],["art","跑圖"],["coffee","跑完喝咖啡"],["chat","聊天慢跑"],["view","看風景"],["race","備賽"]];
+const pLabel = k => (PURPOSES.find(p => p[0] === k) || [k, k])[1];
+const COLORS = ["#E3402A","#2149D1","#1C8547","#A35BD6","#D4890F","#0F8C99","#C2337A","#6B7A12"];
+const colorOf = bib => COLORS[(Math.max(1, bib) - 1) % COLORS.length];
+const use = n => (window.claude && window.claude.use) ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem("pt:" + k)); } catch(e){ return null; } },
+  set(k, v){ try { localStorage.setItem("pt:" + k, JSON.stringify(v)); } catch(e){} }
+};
+function toast(msg){ const el = $("#toast"); el.textContent = msg; el.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("show"), 2600); }
+function fmtClock(ms){ if(!(ms >= 0)) return "0:00"; const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor(s%3600/60), ss = s%60;
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}` : `${m}:${String(ss).padStart(2,"0")}`; }
+function fmtPace(secPerKm){ if(!(secPerKm > 0) || !isFinite(secPerKm)) return "—"; const m = Math.floor(secPerKm/60), s = Math.round(secPerKm%60);
+  return s === 60 ? `${m+1}'00"` : `${m}'${String(s).padStart(2,"0")}"`; }
+function parsePace(str){ str = String(str || "").trim(); if(!str) return null;
+  let m = str.match(/^(\d{1,2})\s*[:'’分]\s*(\d{1,2})/); if(m) return (+m[1])*60 + (+m[2]);
+  const f = parseFloat(str); return f > 2 && f < 20 ? Math.round(f*60) : null; }
+function hhmm(ts){ const d = new Date(ts); return `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function km(a, b){ const R = 6371, r = x => x*Math.PI/180; const dLa = r(b.lat-a.lat), dLo = r(b.lng-a.lng);
+  const h = Math.sin(dLa/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function pathKm(pts){ let d = 0; for(let i = 1; i < pts.length; i++) d += km(pts[i-1], pts[i]); return d; }
+const validPt = p => p && isFinite(p.lat) && isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180;
+function parseCoords(text){
+  const t = String(text || "");
+  let m = t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || t.match(/[?&](?:q|ll|query|destination)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/) || t.match(/^\s*(-?\d{1,2}\.\d+)\s*[, ]\s*(-?\d{2,3}\.\d+)\s*$/);
+  return m ? {lat: +m[1], lng: +m[2]} : null;
+}
+function gmapsDir(points){
+  const ok = points.filter(validPt); if(ok.length < 2) return null;
+  const ll = p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+  const mids = ok.slice(1, -1); const step = Math.max(1, Math.ceil(mids.length / 8));
+  const way = mids.filter((_, i) => i % step === 0).slice(0, 8).map(ll).join("|");
+  return `https://www.google.com/maps/dir/?api=1&origin=${ll(ok[0])}&destination=${ll(ok[ok.length-1])}${way ? "&waypoints=" + encodeURIComponent(way) : ""}&travelmode=walking`;
+}
+const gmapsPin = p => `https://www.google.com/maps/search/?api=1&query=${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+
+/* ===================== 狀態 ===================== */
+let db = null, user = null, sample = null, assets = null, downloads = null;
+let meId = null, canWrite = null, readOnlyHit = false, ready = false;
+let runs = [], runsLoaded = false;
+const cur = { id: null, run: null, runLoaded: false, members: [], events: [], unsubs: [], seen: new Set(), primed: false };
+const drafts = {};      // 表單草稿,讓即時更新時不會洗掉正在打的字
+const busy = {};        // 進行中的動作
+let names = {};         // 使用者 id → 顯示名稱
+let photoLocal = null;  // 自己剛選的照片(dataURL)
+const monthKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+let view = "runs";
+let statsMonth = monthKey(new Date());
+const stats = { month: null, rows: [], loaded: false, mine: [], mineLoaded: false, unsubs: [] };
+const WD = ["日", "一", "二", "三", "四", "五", "六"];
+let audioCtx = null, interacted = false;
+document.addEventListener("pointerdown", () => { interacted = true; }, { once: false });
+
+function chime(alert){
+  if(!interacted) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = alert ? 520 : 880; o.type = "triangle";
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (alert ? 0.6 : 0.25));
+    o.connect(g).connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 0.65);
+  }catch(e){}
+  try{ navigator.vibrate && navigator.vibrate(alert ? [200,80,200] : 80); }catch(e){}
+}
+
+/* ===================== 啟動 ===================== */
+render();
+(async () => {
+  [db, user] = await Promise.all([use("db"), use("user")]);
+  if(user){
+    try { meId = await user.id(); } catch(e){}
+    try { canWrite = await user.can("data.write"); } catch(e){ canWrite = null; }
+  }
+  [sample, assets, downloads] = await Promise.all([use("sample"), use("assets"), use("downloads")]);
+  ready = true;
+  if(db){
+    db.collection("runs").orderBy("when", "desc").limit(60).onSnapshot(s => {
+      runs = s.docs.map(d => ({ id: d.id, ...d.data() })); runsLoaded = true; render();
+    }, e => { runsLoaded = true; render(); });
+  }
+  const h = (location.hash || "").replace(/^#/, "");
+  if(h.startsWith("run-")) openRun(h.slice(4)); else if(h === "stats") openStats(); else render();
+})();
+window.addEventListener("hashchange", () => {
+  const h = (location.hash || "").replace(/^#/, "");
+  if(h.startsWith("run-") && h.slice(4) !== cur.id) openRun(h.slice(4));
+  else if(h === "stats" && view !== "stats") openStats();
+  else if(!h && (cur.id || view !== "runs")){ view = "runs"; closeRun(); }
+});
+$("#homeBtn").addEventListener("click", () => goHome());
+function goHome(){ view = "runs"; closeRun(); try{ history.replaceState(null, "", location.pathname); }catch(e){} render(); }
+
+function openStats(){
+  closeRun(); view = "stats";
+  try{ if(location.hash !== "#stats") location.hash = "stats"; }catch(e){}
+  subscribeStats(); render();
+}
+function subscribeStats(){
+  if(!db) return;
+  if(stats.month !== statsMonth){
+    stats.unsubs.forEach(u => { try{ u(); }catch(e){} }); stats.unsubs = [];
+    stats.month = statsMonth; stats.loaded = false; stats.rows = [];
+    stats.unsubs.push(db.collection("log").where("month", "==", statsMonth).limit(1000).onSnapshot(sn => {
+      stats.rows = sn.docs.map(d => ({ id: d.id, ...d.data() })); stats.loaded = true; resolveIds(stats.rows.map(r => r.uid)); render();
+    }, () => { stats.loaded = true; render(); }));
+  }
+  if(meId && !stats.mineSub){
+    stats.mineSub = db.collection("log").where("uid", "==", meId).limit(1000).onSnapshot(sn => {
+      stats.mine = sn.docs.map(d => ({ id: d.id, ...d.data() })); stats.mineLoaded = true;
+      resolveIds([].concat(...stats.mine.map(r => r.buddies || []))); render();
+    }, () => { stats.mineLoaded = true; render(); });
+  }
+}
+async function resolveIds(ids){
+  if(!user) return;
+  const need = [...new Set(ids.filter(Boolean))].filter(i => !(i in names)).slice(0, 64);
+  if(!need.length) return;
+  need.forEach(i => names[i] = "");
+  try{ const ps = await user.profiles(need); for(const i of need) names[i] = (ps[i] && ps[i].name) || ""; render(); }catch(e){}
+}
+
+function closeRun(){ cur.unsubs.forEach(u => { try{ u(); }catch(e){} }); Object.assign(cur, { id: null, run: null, runLoaded: false, members: [], events: [], unsubs: [], seen: new Set(), primed: false }); photoLocal = null; render(); }
+
+function openRun(id){
+  if(!db || !/^[A-Za-z0-9_\-.~:@+]{1,200}$/.test(id)) return;
+  closeRun(); view = "runs"; cur.id = id;
+  try{ if(location.hash !== "#run-" + id) location.hash = "run-" + id; }catch(e){}
+  const base = db.doc("runs/" + id);
+  cur.unsubs.push(base.onSnapshot(s => { cur.run = s.exists ? { id: s.id, ...s.data() } : null; cur.runLoaded = true; render(); }, () => { cur.runLoaded = true; render(); }));
+  cur.unsubs.push(base.collection("members").onSnapshot(s => { cur.members = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.bib || 99) - (b.bib || 99)); resolveNames(); maybeFinishAll(); render(); }));
+  cur.unsubs.push(base.collection("events").orderBy("at", "desc").limit(80).onSnapshot(s => {
+    const list = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    if(cur.primed){
+      for(const ev of list.slice().reverse()){
+        if(cur.seen.has(ev.id)) continue;
+        if(ev.by !== meId){ const a = ALERTS.has(ev.type); toast(`${memberName(ev.by)}:${evText(ev)}`); chime(a); }
+      }
+    }
+    list.forEach(e => cur.seen.add(e.id)); cur.primed = true; cur.events = list; render();
+  }));
+  render();
+}
+
+async function resolveNames(){
+  if(!user) return;
+  const ids = [...new Set(cur.members.map(m => m.id).concat(cur.run ? [cur.run.createdBy] : []).filter(Boolean))].filter(i => !(i in names));
+  if(!ids.length) return;
+  try{ const ps = await user.profiles(ids); for(const i of ids) names[i] = (ps[i] && ps[i].name) || ""; render(); }catch(e){}
+}
+function memberName(uid){ const m = cur.members.find(x => x.id === uid); return (m && m.nickname) || names[uid] || "跑友"; }
+function memberOf(uid){ return cur.members.find(x => x.id === uid); }
+const isOrganizer = () => cur.run && meId && cur.run.createdBy === meId;
+const writable = () => !!db && !!meId && canWrite !== false && !readOnlyHit;
+
+async function guard(key, fn){
+  if(busy[key]) return; busy[key] = true; render();
+  try { await fn(); }
+  catch(e){
+    if(e && e.code === "invalid_argument" && /permission|write|level/i.test(e.message || "")) readOnlyHit = true;
+    toast(errText(e));
+  }
+  finally { busy[key] = false; render(); }
+}
+function errText(e){
+  const c = e && e.code;
+  if(c === "invalid_argument") return "存不進去:你可能只有檢視權限,請發起人把你加為編輯者。";
+  if(c === "rate_limited" || c === "resource_exhausted") return "太頻繁了,等幾秒再試一次。";
+  if(c === "not_granted") return "這個功能沒被允許,可以在頁面的權限設定打開。";
+  if(c === "invalid_json") return "AI 回覆格式不對,再按一次試試。";
+  if(c === "quota_exceeded") return "資料空間滿了,請刪掉一些舊的跑步。";
+  return (e && e.message) || "出了點問題,再試一次。";
+}
+
+/* ===================== 事件(通知) ===================== */
+const EV = {
+  join: e => "加入了這次跑步",
+  arrived: e => "已抵達集合點",
+  onway: e => e.minutes ? `在路上,請等我大約 ${e.minutes} 分鐘` : "在路上,請等等",
+  cant: e => "突然不能來了",
+  back_in: e => "又可以來了",
+  startIn: e => `我們再 ${e.minutes} 分鐘要開始了`,
+  plan: e => "產生了新的路線和集合點",
+  start: e => "開始跑步!",
+  slower: e => "請跑慢一點",
+  pause: e => "我中離一下",
+  resume: e => "我回來了",
+  waitEnd: e => "請在終點等我",
+  goAhead: e => "你們先走,終點見",
+  chasing: e => "我在後面追,快到了",
+  water: e => "需要補給/喝水",
+  lost: e => "我迷路了",
+  hurt: e => "我受傷了,需要幫忙",
+  finish: e => e.pace ? `跑完了!配速 ${e.pace}` : "跑完了!",
+  allDone: e => "大家都跑完了,上傳照片做紀念吧",
+  msg: e => e.text || "",
+  mood: e => { const m = moodOf(e.mood); return m ? `今天${m[2]} ${m[1]}` : "更新了狀態"; },
+  kudos: e => `${kudoLabel(e.kudo)} → ${memberName(e.to)}`,
+};
+const ALERTS = new Set(["hurt", "lost", "cant", "slower", "waitEnd"]);
+const MOODS = [["tired","😴","有點累",20],["ok","🙂","普通",0],["great","🔥","狀態很好",-10],["sore","🤕","不太舒服",30]];
+const moodOf = k => MOODS.find(m => m[0] === k);
+const KUDOS = [["wait","謝謝你等我"],["pace","謝謝你帶配速"],["host","謝謝你揪團"],["cheer","謝謝你一路陪聊"],["again","下次再一起跑"]];
+const kudoLabel = k => (KUDOS.find(x => x[0] === k) || [k, k])[1];
+/* 團體配速:最慢的人的配速,再依當天狀態放慢 */
+function groupPace(members){
+  const act = members.filter(m => m.status !== "cant" && m.pace);
+  if(!act.length) return null;
+  return Math.max(...act.map(m => m.pace + ((moodOf(m.mood) || [0,0,0,0])[3]))); 
+}
+/* 出發點很近的人,建議約一起過去 */
+function buddyPairs(members){
+  const act = members.filter(m => m.status !== "cant" && validPt(m.start)); const out = [];
+  for(let i = 0; i < act.length; i++) for(let j = i + 1; j < act.length; j++){
+    const d = km(act[i].start, act[j].start); if(d <= 1.5) out.push([act[i], act[j], d]); }
+  return out.sort((a, b) => a[2] - b[2]).slice(0, 4);
+}
+const evText = e => (EV[e.type] || EV.msg)(e);
+
+async function postEvent(type, extra = {}){
+  if(!writable() || !cur.id) return;
+  await db.collection(`runs/${cur.id}/events`).add({ type, by: meId, at: Date.now(), ...extra });
+}
+async function updateMe(patch){
+  await db.doc(`runs/${cur.id}/members/${meId}`).update({ ...patch, updatedAt: Date.now() });
+}
+
+/* ===================== 地圖(自己畫,不需要圖磚) ===================== */
+function courseSVG(plan, members, opts = {}){
+  const pts = [];
+  const add = p => { if(validPt(p)) pts.push(p); };
+  (plan && plan.route || []).forEach(add); if(plan){ add(plan.meet); add(plan.end); (plan.stops || []).forEach(add); }
+  (members || []).forEach(m => add(m.start));
+  if(pts.length === 0) return `<div class="empty">還沒有位置資料。大家填好出發地點後,這裡會畫出每個人的位置和路線。</div>`;
+  const W = 640, H = opts.h || 420, P = 38;
+  const lat0 = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
+  const kx = 111.32 * Math.cos(lat0 * Math.PI / 180), ky = 110.57;
+  const xy = p => [p.lng * kx, -p.lat * ky];
+  const XY = pts.map(xy);
+  let minX = Math.min(...XY.map(a => a[0])), maxX = Math.max(...XY.map(a => a[0]));
+  let minY = Math.min(...XY.map(a => a[1])), maxY = Math.max(...XY.map(a => a[1]));
+  const span = Math.max(maxX - minX, maxY - minY, 0.8);
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  const s = Math.min((W - 2*P) / Math.max(maxX - minX, span * 0.4), (H - 2*P) / Math.max(maxY - minY, span * 0.4));
+  const tx = p => { const [x, y] = xy(p); return [W/2 + (x - cx) * s, H/2 + (y - cy) * s]; };
+  const viewKm = W / s;
+  const step = [0.25, 0.5, 1, 2, 5, 10, 20].find(v => viewKm / v <= 10) || 50;
+  let grid = "";
+  for(let gx = Math.floor((cx - W/2/s) / step) * step; gx < cx + W/2/s; gx += step){ const X = W/2 + (gx - cx) * s; grid += `<line x1="${X.toFixed(1)}" y1="0" x2="${X.toFixed(1)}" y2="${H}"/>`; }
+  for(let gy = Math.floor((cy - H/2/s) / step) * step; gy < cy + H/2/s; gy += step){ const Y = H/2 + (gy - cy) * s; grid += `<line x1="0" y1="${Y.toFixed(1)}" x2="${W}" y2="${Y.toFixed(1)}"/>`; }
+  const label = (x, y, text, anchor = "start", dy = -12, weight = 700) =>
+    `<text x="${x.toFixed(1)}" y="${(y + dy).toFixed(1)}" text-anchor="${anchor}" font-size="12.5" font-weight="${weight}" fill="var(--ink)" stroke="var(--bg)" stroke-width="4" paint-order="stroke" style="font-family:var(--body)">${esc(text)}</text>`;
+  let out = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="路線地圖"><defs><marker id="arw" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M1,1 L9,5 L1,9 z" fill="var(--surface)"/></marker></defs>`;
+  out += `<rect width="${W}" height="${H}" fill="var(--bg)"/><g stroke="var(--line)" stroke-width="1">${grid}</g>`;
+  // 每個人到集合點的虛線
+  if(plan && validPt(plan.meet)){
+    const [mx, my] = tx(plan.meet);
+    (members || []).forEach(m => { if(!validPt(m.start) || m.status === "cant") return; const [x, y] = tx(m.start);
+      out += `<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${mx.toFixed(1)}" y2="${my.toFixed(1)}" stroke="${colorOf(m.bib)}" stroke-width="2" stroke-dasharray="5 5" opacity=".8"/>`; });
+  }
+  // 路線
+  const route = (plan && plan.route || []).filter(validPt);
+  if(route.length > 1){
+    const d = route.map((p, i) => { const [x, y] = tx(p); return (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); }).join(" ");
+    out += `<path d="${d}" fill="none" stroke="var(--surface)" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>`;
+    out += `<path d="${d}" fill="none" stroke="var(--route)" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" marker-mid="url(#arw)"/>`;
+  }
+  // 補給點
+  (plan && plan.stops || []).filter(validPt).forEach(st => { const [x, y] = tx(st);
+    const ch = { coffee: "咖", water: "水", toilet: "廁", photo: "拍" }[st.type] || "停";
+    out += `<rect x="${(x-11).toFixed(1)}" y="${(y-11).toFixed(1)}" width="22" height="22" rx="5" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/><text x="${x.toFixed(1)}" y="${(y+4.5).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="900" fill="var(--ink)" style="font-family:var(--body)">${ch}</text>` + label(x + 14, y, st.name, "start", 4, 500); });
+  // 終點
+  if(plan && validPt(plan.end)){ const [x, y] = tx(plan.end);
+    out += `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})"><line x1="0" y1="0" x2="0" y2="-24" stroke="var(--ink)" stroke-width="2"/><rect x="0" y="-24" width="16" height="11" fill="var(--ink)"/><rect x="0" y="-24" width="4" height="3.7" fill="var(--bg)"/><rect x="8" y="-24" width="4" height="3.7" fill="var(--bg)"/><rect x="4" y="-20.3" width="4" height="3.7" fill="var(--bg)"/><rect x="12" y="-20.3" width="4" height="3.7" fill="var(--bg)"/><rect x="0" y="-16.6" width="4" height="3.6" fill="var(--bg)"/><rect x="8" y="-16.6" width="4" height="3.6" fill="var(--bg)"/></g>` + label(x + 20, y, "終點 " + (plan.end.name || ""), "start", -14); }
+  // 集合點
+  if(plan && validPt(plan.meet)){ const [x, y] = tx(plan.meet);
+    out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="15" fill="var(--accent)" stroke="var(--surface)" stroke-width="3"/><text x="${x.toFixed(1)}" y="${(y+5).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="900" fill="var(--accent-ink)" style="font-family:var(--body)">集</text>` + label(x, y, plan.meet.name || "集合點", "middle", -22, 900); }
+  // 每個人的出發點
+  (members || []).forEach(m => { if(!validPt(m.start)) return; const [x, y] = tx(m.start); const c = colorOf(m.bib);
+    out += `<g opacity="${m.status === "cant" ? .35 : 1}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="11" fill="${c}" stroke="var(--surface)" stroke-width="2.5"/><text x="${x.toFixed(1)}" y="${(y+4.5).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" style="font-family:var(--display)">${m.bib || ""}</text></g>` + label(x + 14, y, m.nickname || memberName(m.id), "start", 4); });
+  // 比例尺 + 北
+  const barKm = step, barPx = barKm * s;
+  out += `<g transform="translate(14,${H - 16})"><rect x="-6" y="-20" width="${(barPx + 60).toFixed(1)}" height="28" rx="6" fill="var(--surface)" opacity=".9"/><line x1="0" y1="0" x2="${barPx.toFixed(1)}" y2="0" stroke="var(--ink)" stroke-width="3"/><line x1="0" y1="-5" x2="0" y2="3" stroke="var(--ink)" stroke-width="2"/><line x1="${barPx.toFixed(1)}" y1="-5" x2="${barPx.toFixed(1)}" y2="3" stroke="var(--ink)" stroke-width="2"/><text x="${(barPx + 8).toFixed(1)}" y="4" font-size="13" font-weight="700" fill="var(--ink)" style="font-family:var(--display)">${barKm < 1 ? barKm * 1000 + " m" : barKm + " km"}</text></g>`;
+  out += `<g transform="translate(${W - 26},28)"><circle r="15" fill="var(--surface)" stroke="var(--line)"/><path d="M0,-10 L5,4 L0,1 L-5,4 z" fill="var(--ink)"/><text y="13" text-anchor="middle" font-size="8" font-weight="900" fill="var(--muted)" style="font-family:var(--display)">N</text></g>`;
+  if(opts.example) out += `<text x="${W - 14}" y="${H - 14}" text-anchor="end" font-size="13" font-weight="800" fill="var(--muted)" style="font-family:var(--display);letter-spacing:.1em">範例 EXAMPLE</text>`;
+  return out + "</svg>";
+}
+
+/* ===================== AI:地點座標與路線 ===================== */
+async function geocode(text, city){
+  const direct = parseCoords(text); if(direct) return { ...direct, name: text.slice(0, 40), approx: false };
+  if(!sample) throw { message: "這個檢視沒有 AI 可以估位置,請改貼 Google 地圖連結或座標(例如 25.033, 121.565)。" };
+  const r = await sample.json(
+    `You are a geocoder for running meetups in Taiwan. City hint: "${city || "台北"}".\n` +
+    `Place text from a user: "${text}"\n` +
+    `Reply with only JSON: {"name":"short Traditional Chinese place name","lat":number,"lng":number,"confidence":"high"|"medium"|"low"}. ` +
+    `Use your best estimate of WGS84 coordinates for that place (MRT station, park, landmark, neighborhood).`,
+    { modelTier: "quick" });
+  if(!r || !isFinite(+r.lat) || !isFinite(+r.lng)) throw { message: "找不到這個地點,換個說法(例如捷運站名)或貼 Google 地圖連結。" };
+  return { lat: +r.lat, lng: +r.lng, name: String(r.name || text).slice(0, 40), approx: true, confidence: r.confidence || "medium" };
+}
+
+async function makePlan(){
+  const run = cur.run;
+  const people = cur.members.filter(m => m.status !== "cant" && validPt(m.start)).map(m => ({
+    bib: m.bib, name: m.nickname || memberName(m.id), start: { name: m.start.name, lat: +m.start.lat.toFixed(5), lng: +m.start.lng.toFixed(5) },
+    pace_per_km: m.pace ? fmtPace(m.pace) : "unknown", purposes: (m.purposes || []).map(pLabel), must_pass: m.mustPass || "", want_to_end_or_stay: m.wantStay || "",
+    feeling_today: m.mood ? (moodOf(m.mood) || [])[2] : "unknown"
+  }));
+  if(!people.length) throw { message: "至少要有一個人填好出發地點,才能規劃路線。" };
+  if(!sample) throw { message: "這個檢視沒有 AI 可以規劃路線。" };
+  const prompt =
+`You plan group runs in Taiwan. Plan ONE group run that is fair to everyone.
+Run: ${JSON.stringify({ title: run.title, city: run.city || "台北", when: run.when, purposes: (run.purposes || []).map(pLabel), target_km: run.targetKm || null, end_wish: run.endWish || "", must_pass: run.mustPass || "", notes: run.notes || "" })}
+Runners (start = where each person comes from): ${JSON.stringify(people)}
+
+Rules:
+- meet: a real, easy-to-find spot (MRT exit, park gate, landmark) that keeps everyone's travel roughly fair (minimize the longest trip), ideally near transit.
+- route: 5-14 ordered real points along runnable streets, riverside bike paths or park loops, starting at meet. Include every must-pass place. Match target distance if given (else fit the purposes and slowest pace, about 5-8 km).
+- If purposes include running art (跑圖), shape the route as a recognizable simple figure and say what it is in "shape".
+- If purposes include coffee (喝咖啡) or someone wants to end somewhere, end near a real café/that place and add it to stops.
+- stops: optional water / toilet / coffee / photo spots on or near the route.
+- regroup tips: where faster runners should wait for slower ones.
+- If someone feels tired or unwell today, keep the route easier and shorter and mention a bail-out point (MRT / bus) in tips.
+- All names in Traditional Chinese (Taiwan). Coordinates are WGS84 decimals.
+Reply with only JSON:
+{"meet":{"name":"","lat":0,"lng":0,"why":""},"route":[{"name":"","lat":0,"lng":0}],"end":{"name":"","lat":0,"lng":0},"stops":[{"name":"","lat":0,"lng":0,"type":"coffee|water|toilet|photo"}],"distance_km":0,"shape":"","summary":"one or two sentences","tips":["short tip"]}`;
+  const r = await sample.json(prompt, { modelTier: "complex" });
+  const P = x => x && isFinite(+x.lat) && isFinite(+x.lng) ? { name: String(x.name || "").slice(0, 40), lat: +x.lat, lng: +x.lng } : null;
+  const plan = {
+    meet: P(r.meet) ? { ...P(r.meet), why: String(r.meet.why || "").slice(0, 200) } : null,
+    route: (Array.isArray(r.route) ? r.route : []).map(P).filter(Boolean).slice(0, 20),
+    end: P(r.end),
+    stops: (Array.isArray(r.stops) ? r.stops : []).map(s => P(s) ? { ...P(s), type: ["coffee","water","toilet","photo"].includes(s.type) ? s.type : "photo" } : null).filter(Boolean).slice(0, 6),
+    shape: String(r.shape || "").slice(0, 60),
+    summary: String(r.summary || "").slice(0, 300),
+    tips: (Array.isArray(r.tips) ? r.tips : []).map(t => String(t).slice(0, 120)).slice(0, 5),
+    madeAt: Date.now(), by: meId
+  };
+  if(!plan.meet || plan.route.length < 2) throw { message: "AI 給的路線不完整,再按一次試試。" };
+  if(!plan.end) plan.end = plan.route[plan.route.length - 1];
+  const measured = pathKm(plan.route) * 1.12;
+  const claimed = +r.distance_km;
+  plan.distanceKm = +(claimed > 0 && claimed < measured * 1.8 && claimed > measured * 0.6 ? claimed : measured).toFixed(1);
+  return plan;
+}
+
+/* ===================== 畫面 ===================== */
+function render(){
+  const who = $("#who");
+  if(!ready) who.innerHTML = `<span class="spin" aria-hidden="true"></span>`;
+  else if(!db) who.textContent = "離線預覽";
+  else if(!meId) who.textContent = "請先登入";
+  else who.textContent = writable() ? "" : "目前只能檢視";
+  const app = $("#app");
+  const act = document.activeElement;
+  const keep = act && app.contains(act) && /INPUT|TEXTAREA/.test(act.tagName) ? act.id : null;
+  const selStart = keep ? act.selectionStart : null;
+  $("#tabs").innerHTML = `<button type="button" data-tab="runs" ${view !== "stats" ? 'aria-current="page"' : ""}>跑步</button><button type="button" data-tab="stats" ${view === "stats" ? 'aria-current="page"' : ""}>排行榜與紀錄</button>`;
+  app.innerHTML = cur.id ? runView() : view === "stats" ? statsView() : homeView();
+  if(keep){ const el = document.getElementById(keep); if(el){ el.focus(); try{ if(selStart != null && el.setSelectionRange) el.setSelectionRange(selStart, selStart); }catch(e){} } }
+  bindCanvas();
+}
+
+function chipsHTML(key, selected){
+  const sel = new Set(selected || []);
+  return `<div class="chips" role="group">${PURPOSES.map(([k, l]) => `<button type="button" class="chip" data-chip="${key}" data-v="${k}" aria-pressed="${sel.has(k)}">${l}</button>`).join("")}</div>`;
+}
+const D = (k, def = "") => esc(drafts[k] ?? def);
+
+function permNote(){
+  if(!ready) return "";
+  if(!db) return `<div class="banner">這個頁面要在 Claude 裡打開,才能和朋友即時同步。</div>`;
+  if(!meId) return `<div class="banner">登入 Claude 之後才能發起或加入跑步。</div>`;
+  if(!writable()) return `<div class="banner warn">你目前只能檢視。請頁面擁有者在「分享」裡用 email 邀請你,權限選「編輯者」,就能加入跑步、按狀態。</div>`;
+  return "";
+}
+
+function homeView(){
+  const ex = { meet: { name: "大安森林公園 2號出口", lat: 25.0331, lng: 121.5357 },
+    route: [{lat:25.0331,lng:121.5357},{lat:25.0379,lng:121.5362},{lat:25.0381,lng:121.5440},{lat:25.0378,lng:121.5487},{lat:25.0336,lng:121.5486},{lat:25.0332,lng:121.5420},{lat:25.0302,lng:121.5402},{lat:25.0299,lng:121.5355},{lat:25.0322,lng:121.5300}],
+    end: { name: "永康街咖啡", lat: 25.0322, lng: 121.5300 }, stops: [{ name: "仁愛路林蔭道", lat: 25.0380, lng: 121.5410, type: "photo" }] };
+  const exM = [{ bib: 1, nickname: "阿明 · 公館", start: { lat: 25.0147, lng: 121.5343 } }, { bib: 2, nickname: "小美 · 信義安和", start: { lat: 25.0331, lng: 121.5527 } }, { bib: 3, nickname: "Kevin · 中山", start: { lat: 25.0526, lng: 121.5203 } }];
+  const list = runs.map(r => {
+    const d = r.when ? new Date(r.when) : null;
+    const st = { planning: ["報名中", "route"], running: ["跑步中", "danger"], finished: ["已完成", "muted"] }[r.status || "planning"];
+    return `<button class="runcard" type="button" data-open="${esc(r.id)}">
+      <div class="date">${d && !isNaN(d) ? `<b>${d.getDate()}</b><small>${d.getMonth()+1}月 ${hhmm(d)}</small>` : `<b>–</b><small>未定</small>`}</div>
+      <div style="min-width:0"><div style="font-weight:900;overflow-wrap:anywhere">${esc(r.title || "一起跑")}</div>
+        <div class="small muted">${r.repeat === "weekly" ? '<b style="color:var(--accent)">每週</b> · ' : ""}${esc(r.city || "")}${(r.purposes || []).length ? " · " + (r.purposes || []).map(pLabel).join("、") : ""}${r.targetKm ? ` · 約 ${esc(r.targetKm)} km` : ""}</div></div>
+      <span class="pill ${st[1]}">${st[0]}</span></button>`;
+  }).join("");
+  const seriesMap = {};
+  runs.filter(r => r.repeat === "weekly" && r.seriesId).forEach(r => { const cur0 = seriesMap[r.seriesId]; if(!cur0 || String(r.when) > String(cur0.when)) seriesMap[r.seriesId] = r; });
+  const seriesHTML = Object.values(seriesMap).map(r => { const d = new Date(r.when);
+    return `<button type="button" data-open="${esc(r.id)}"><b>${esc(r.title || "固定團")}</b><span>每週${isNaN(d) ? "" : WD[d.getDay()] + " " + hhmm(d)} · 下一場 ${isNaN(d) ? "" : (d.getMonth() + 1) + "/" + d.getDate()}</span></button>`; }).join("");
+  const now = new Date(Date.now() + 86400000); now.setHours(19, 30, 0, 0);
+  const defWhen = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  return `<div class="cols">
+    <div class="stack">
+      <section class="panel stack">
+        <div><div class="eyebrow">比的是陪伴,不是配速</div>
+        <h1 style="font-size:26px;font-weight:900;margin-top:4px">快的人跟慢的人,同一時間到終點。</h1>
+        <p class="muted" style="margin:.4em 0 0;max-width:60ch">每個人填自己從哪裡出發、想去哪、配速多少。AI 會找一個對大家都公平的集合點、排一條路線;跑步途中誰需要慢一點、誰要中離,大家的手機會即時跳通知。跑完上傳一張照片,自動做成紀念圖。</p></div>
+        <div class="map">${courseSVG(ex, exM, { example: true, h: 360 })}</div>
+        <div class="legend"><span><i class="sw"></i>路線</span><span>● 每個人的出發點(號碼布)</span><span style="color:var(--accent)">● 集合點</span><span>⚑ 終點</span></div>
+      </section>
+    </div>
+    <div class="stack">
+      ${permNote()}
+      <section class="panel stack" aria-labelledby="newRunH">
+        <h2 id="newRunH">發起一場跑步</h2>
+        <div class="field"><label for="n_title">名稱</label><input type="text" id="n_title" data-draft="n_title" value="${D("n_title")}" placeholder="例如:週四夜跑 + 咖啡"></div>
+        <div class="grid2">
+          <div class="field"><label for="n_when">時間</label><input type="datetime-local" id="n_when" data-draft="n_when" value="${D("n_when", defWhen)}"></div>
+          <div class="field"><label for="n_city">城市 / 區域</label><input type="text" id="n_city" data-draft="n_city" value="${D("n_city", "台北")}"></div>
+        </div>
+        <div class="field"><label>這次的目的</label>${chipsHTML("n_purposes", drafts.n_purposes || ["train"])}</div>
+        <div class="grid2">
+          <div class="field"><label for="n_km">想跑幾公里(選填)</label><input type="number" inputmode="decimal" min="1" max="60" step="0.5" id="n_km" data-draft="n_km" value="${D("n_km")}" placeholder="6"></div>
+          <div class="field"><label for="n_end">想在哪裡結束(選填)</label><input type="text" id="n_end" data-draft="n_end" value="${D("n_end")}" placeholder="例如:永康街喝咖啡"></div>
+        </div>
+        <div class="field"><label for="n_must">一定要經過(選填)</label><input type="text" id="n_must" data-draft="n_must" value="${D("n_must")}" placeholder="例如:河濱自行車道、象山步道口"></div>
+        <label class="checkrow"><input type="checkbox" id="n_weekly" data-draft-check="n_weekly" ${drafts.n_weekly ? "checked" : ""}> 固定團:每週這個時間都跑(例如每週四夜跑)</label>
+        <button class="btn primary" type="button" data-act="createRun" ${writable() && !busy.createRun ? "" : "disabled"}>${busy.createRun ? '<span class="spin"></span>' : ""}建立並取得房間</button>
+      </section>
+      ${seriesHTML ? `<section class="panel stack" aria-labelledby="seriesH"><h2 id="seriesH">固定團</h2><div class="series">${seriesHTML}</div></section>` : ""}
+      <section class="panel stack" aria-labelledby="listH">
+        <h2 id="listH">最近的跑步</h2>
+        ${!ready || (db && !runsLoaded) ? `<div class="empty"><span class="spin"></span></div>` : list || `<div class="empty">還沒有人發起。建立第一場之後,邀請到這頁的朋友都會在這裡看到它。</div>`}
+      </section>
+    </div>
+  </div>`;
+}
+
+function statusPill(m){
+  if(cur.run && cur.run.status !== "planning"){
+    if(m.status === "cant") return `<span class="pill muted">沒來</span>`;
+    if(m.runState === "finished") return `<span class="pill ok">完賽 ${m.finishAt && cur.run.startAt ? fmtClock(m.finishAt - cur.run.startAt) : ""}</span>`;
+    if(m.runState === "pause") return `<span class="pill warn">中離中</span>`;
+    if(m.lastFlag && ALERTS.has(m.lastFlag) && Date.now() - (m.flagAt || 0) < 15 * 60000) return `<span class="pill danger">${esc(EV[m.lastFlag]({}))}</span>`;
+    return `<span class="pill route">跑步中</span>`;
+  }
+  return { arrived: `<span class="pill ok">已抵達</span>`, onway: `<span class="pill warn">在路上${m.etaMin ? ` · ${m.etaMin} 分` : ""}</span>`, cant: `<span class="pill muted">不能來</span>` }[m.status] || `<span class="pill muted">已報名</span>`;
+}
+
+function bibsHTML(){
+  if(!cur.members.length) return `<div class="empty">還沒有人報名。把這頁分享給朋友,大家各自按「加入」。</div>`;
+  const meet = cur.run && cur.run.plan && cur.run.plan.meet;
+  return `<div class="bibs">${cur.members.map(m => {
+    const dist = validPt(meet) && validPt(m.start) ? km(m.start, meet) : null;
+    return `<div class="bib ${m.id === meId ? "me" : ""} ${m.status === "cant" ? "out" : ""}" style="--c:${colorOf(m.bib)}">
+      <div class="no">${m.bib || "–"}</div>
+      <div class="nm">${esc(m.nickname || memberName(m.id))}${m.id === cur.run.createdBy ? ' <span class="small muted">發起人</span>' : ""}</div>
+      <div class="meta">${esc(m.start && m.start.name || m.startLabel || "")}${m.pace ? ` · ${fmtPace(m.pace)}/km` : ""}</div>
+      ${dist != null ? `<div class="meta">離集合點 ${dist.toFixed(1)} km</div>` : ""}
+      ${m.mood && moodOf(m.mood) ? `<div class="meta">${moodOf(m.mood)[1]} 今天${moodOf(m.mood)[2]}</div>` : ""}
+      ${statusPill(m)}</div>`; }).join("")}</div>`;
+}
+
+function feedHTML(){
+  if(!cur.events.length) return `<div class="empty small">大家按的狀態和訊息會出現在這裡,也會跳通知給每個人。</div>`;
+  return `<div class="feed">${cur.events.map(e => { const m = memberOf(e.by);
+    return `<div class="ev ${ALERTS.has(e.type) ? "alert" : ""}"><div class="t">${hhmm(e.at)}</div><div style="min-width:0"><div class="who" style="--c:${m ? colorOf(m.bib) : "var(--ink)"}">${esc(memberName(e.by))}</div><div class="tx">${esc(evText(e))}</div></div></div>`; }).join("")}</div>`;
+}
+
+function joinHTML(me){
+  if(!writable()) return permNote();
+  if(me) return "";
+  return `<section class="panel stack" aria-labelledby="joinH">
+    <h2 id="joinH">加入這次跑步</h2>
+    <div class="grid2">
+      <div class="field"><label for="j_nick">怎麼稱呼你</label><input type="text" id="j_nick" data-draft="j_nick" value="${D("j_nick", store.get("nick") || "")}" placeholder="例如:阿明"></div>
+      <div class="field"><label for="j_pace">平常配速(每公里)</label><input type="text" id="j_pace" data-draft="j_pace" value="${D("j_pace", store.get("pace") || "")}" placeholder="6:30"></div>
+    </div>
+    <div class="field"><label for="j_start">你從哪裡出發</label><input type="text" id="j_start" data-draft="j_start" value="${D("j_start", store.get("start") || "")}" placeholder="捷運站、地標,或貼 Google 地圖連結">
+      <span class="hint">AI 會估算大概位置;想要精準就貼 Google 地圖連結或座標。</span></div>
+    <div class="grid2">
+      <div class="field"><label for="j_stay">跑完想待的地方(選填)</label><input type="text" id="j_stay" data-draft="j_stay" value="${D("j_stay")}" placeholder="例如:想去吃早餐"></div>
+      <div class="field"><label for="j_must">一定要經過(選填)</label><input type="text" id="j_must" data-draft="j_must" value="${D("j_must")}" placeholder="例如:大稻埕碼頭"></div>
+      <div class="field"><label for="j_ice">緊急聯絡人(選填)</label><input type="text" id="j_ice" data-draft="j_ice" value="${D("j_ice", store.get("ice") || "")}" placeholder="例如:媽媽 0912-345-678">
+        <span class="hint">只有你按「我受傷了」時,才會顯示在大家的畫面上。這場的參加者讀得到這筆資料。</span></div>
+    </div>
+    <div class="field"><label>你這次想要</label>${chipsHTML("j_purposes", drafts.j_purposes || (cur.run.purposes || []))}</div>
+    <button class="btn primary" type="button" data-act="join" ${busy.join ? "disabled" : ""}>${busy.join ? '<span class="spin"></span> 找位置中…' : "加入"}</button>
+  </section>`;
+}
+
+function planHTML(){
+  const run = cur.run, plan = run.plan;
+  const canPlan = writable() && !!memberOf(meId) && run.status === "planning";
+  const pts = plan ? [plan.meet, ...plan.route.slice(1), plan.end].filter(validPt) : [];
+  const gUrl = plan ? gmapsDir(plan.route.concat(plan.end && plan.route.length && km(plan.end, plan.route[plan.route.length - 1]) > 0.05 ? [plan.end] : [])) : null;
+  const me = memberOf(meId);
+  const myNav = plan && me && validPt(me.start) && validPt(plan.meet) ? gmapsDir([me.start, plan.meet]) : null;
+  return `<section class="panel stack" aria-labelledby="planH">
+    <div class="row" style="justify-content:space-between"><h2 id="planH">集合點與路線</h2>
+      ${canPlan ? `<button class="btn ${plan ? "ghost" : "dark"}" type="button" data-act="plan" ${busy.plan ? "disabled" : ""}>${busy.plan ? '<span class="spin"></span> AI 規劃中…' : plan ? "重新規劃" : "AI 幫我們規劃"}</button>` : ""}</div>
+    <div class="map">${courseSVG(plan, cur.members)}</div>
+    ${plan ? `
+      <div class="stats">
+        <div class="stat"><b>${plan.distanceKm}<small style="font-size:16px"> km</small></b><small>路線長度(估)</small></div>
+        <div class="stat"><b>${cur.members.filter(m => m.status !== "cant").length}</b><small>人參加</small></div>
+        <div class="stat"><b>${fmtPace(groupPace(cur.members))}</b><small>建議團體配速 /km</small></div>
+      </div>
+      <div><b>集合:</b>${esc(plan.meet.name)}${plan.meet.why ? `<span class="muted small"> — ${esc(plan.meet.why)}</span>` : ""}</div>
+      ${plan.summary ? `<div class="small">${esc(plan.summary)}${plan.shape ? `(跑圖造型:${esc(plan.shape)})` : ""}</div>` : ""}
+      ${plan.tips && plan.tips.length ? `<ul class="small" style="margin:0;padding-left:1.2em">${plan.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
+      <div class="row">${gUrl ? `<a class="btn dark" href="${esc(gUrl)}" target="_blank" rel="noopener">在 Google 地圖看路線</a>` : ""}
+        ${myNav ? `<a class="btn ghost" href="${esc(myNav)}" target="_blank" rel="noopener">導航到集合點</a>` : ""}
+        <a class="btn ghost" href="${esc(gmapsPin(plan.meet))}" target="_blank" rel="noopener">集合點位置</a></div>
+      ${buddyPairs(cur.members).map(([a, b, d]) => `<div class="banner small">🤝 <b>${esc(a.nickname || memberName(a.id))}</b> 和 <b>${esc(b.nickname || memberName(b.id))}</b> 出發點只差 ${d < 1 ? Math.round(d * 1000) + " m" : d.toFixed(1) + " km"},可以約一起過去集合點。</div>`).join("")}
+      <div class="row"><button class="btn ghost" type="button" data-act="gpx">下載路線 GPX(手錶用)</button><button class="btn ghost" type="button" data-act="ics">加到行事曆</button></div>
+      <p class="small muted" style="margin:0">位置由 AI 估算,出發前請用 Google 地圖確認一下集合點。GPX 可以匯入 Garmin、Apple Watch(WorkOutDoors)、Strava、Coros。</p>`
+    : `<p class="small muted" style="margin:0">${cur.members.length ? "大家都報名好之後,按「AI 幫我們規劃」。AI 會依每個人的出發點、配速和目的,找一個公平的集合點。" : "先有人加入,才能規劃。"}</p>`}
+  </section>`;
+}
+
+function checklistHTML(){
+  const run = cur.run; const night = (() => { const d = new Date(run.when); const h = d.getHours(); return !isNaN(d) && (h >= 17 || h < 6); })();
+  const items = [["water","帶水或補給"],["phone","手機電量 50% 以上"],["card","悠遊卡 / 一點現金"]];
+  if(night) items.push(["light","頭燈或反光背心"]);
+  if((run.purposes || []).includes("coffee") || run.endWish) items.push(["shirt","換洗上衣(要去咖啡廳)"]);
+  if(((run.plan && run.plan.distanceKm) || run.targetKm || 0) >= 10) items.push(["gel","能量膠"]);
+  const done = store.get("chk:" + cur.id) || {};
+  const n = items.filter(i => done[i[0]]).length;
+  return `<details class="field" ${drafts.chkOpen ? "open" : ""} id="chkDet"><summary>出門前檢查(${n}/${items.length})</summary>
+    <div class="stack" style="gap:6px;margin-top:8px">${items.map(([k, l]) => `<label class="checkrow"><input type="checkbox" data-chk="${k}" ${done[k] ? "checked" : ""}> ${l}</label>`).join("")}</div></details>`;
+}
+
+function preRunHTML(me){
+  if(!me || !writable()) return "";
+  const run = cur.run;
+  return `<section class="panel stack" aria-labelledby="preH">
+    <h2 id="preH">跑前狀態</h2>
+    <div class="field"><label>今天身體感覺</label><div class="chips" role="group">${MOODS.map(([k, ic, l]) => `<button type="button" class="chip" data-mood="${k}" aria-pressed="${me.mood === k}">${ic} ${l}</button>`).join("")}</div>
+      <span class="hint">有人累或不舒服,建議團體配速會自動放慢,AI 規劃也會排輕鬆一點的路線。</span></div>
+    ${checklistHTML()}
+    <div class="quick">
+      <button type="button" data-st="arrived">已經抵達集合點</button>
+      <button type="button" data-st="onway">在路上,請等等${drafts.eta ? `(${esc(drafts.eta)} 分)` : ""}</button>
+      ${me.status === "cant" ? `<button type="button" data-st="back_in">我又可以來了</button>` : `<button type="button" class="hot" data-st="cant">突然不能來</button>`}
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:140px"><label for="eta">還要幾分鐘到(選填)</label><input type="number" inputmode="numeric" min="1" max="120" id="eta" data-draft="eta" value="${D("eta")}" placeholder="10"></div>
+    </div>
+    <div class="row" style="align-items:flex-end">
+      <div class="field" style="flex:1;min-width:140px"><label for="startIn">我們再幾分鐘要開始</label><input type="number" inputmode="numeric" min="1" max="120" id="startIn" data-draft="startIn" value="${D("startIn", "5")}"></div>
+      <button class="btn ghost" type="button" data-act="startIn">通知大家</button>
+    </div>
+    ${run.startInAt && run.startInAt > Date.now() - 60000 ? `<div class="banner">預計 <b class="num">${hhmm(run.startInAt)}</b> 開始(<span data-countdown="${run.startInAt}"></span>)</div>` : ""}
+    ${isOrganizer() ? `<button class="btn primary block" type="button" data-act="start" ${busy.start ? "disabled" : ""}>開始跑步</button><p class="small muted" style="margin:0">你是發起人。按下開始後計時開始,所有人會收到通知。</p>`
+      : `<p class="small muted" style="margin:0">等發起人按「開始跑步」。<button type="button" class="chip" data-act="start" style="margin-left:6px">發起人不在,由我開始</button></p>`}
+  </section>`;
+}
+
+function liveHTML(me){
+  const run = cur.run;
+  const quick = [["slower","請跑慢一點"],["pause","我中離一下"],["resume","我回來了"],["waitEnd","請在終點等我"],["goAhead","你們先走,終點見"],["chasing","我在後面追,快到了"],["water","需要補給"],["lost","我迷路了"],["hurt","我受傷了,需要幫忙"]];
+  const hurt = cur.members.filter(m => m.lastFlag === "hurt" && Date.now() - (m.flagAt || 0) < 30 * 60000 && m.runState !== "finished");
+  return `<section class="panel stack" aria-labelledby="liveH">
+    <div class="row" style="justify-content:space-between;align-items:flex-end"><div><div class="eyebrow" id="liveH">跑步中</div><div class="clock" data-clock="${run.startAt}">${fmtClock(Date.now() - run.startAt)}</div></div>
+      <div class="small muted" style="text-align:right">${hhmm(run.startAt)} 出發<br>${cur.members.filter(m => m.runState === "finished").length}/${cur.members.filter(m => m.status !== "cant").length} 人完成</div></div>
+    ${hurt.map(m => `<div class="banner danger"><b>${esc(m.nickname || memberName(m.id))}</b> 說受傷了,需要幫忙。最近的人請過去看看。${m.ice ? `<br>緊急聯絡人:<b style="user-select:all">${esc(m.ice)}</b>` : ""}<br><span class="small">嚴重的話請直接打 119。</span></div>`).join("")}
+    ${me && writable() && me.status !== "cant" && me.runState !== "finished" ? `
+      <div class="quick">${quick.map(([k, l]) => `<button type="button" data-q="${k}" class="${["hurt","lost"].includes(k) ? "hot" : ""}">${l}</button>`).join("")}</div>
+      <div class="row"><input type="text" id="msg" data-draft="msg" value="${D("msg")}" placeholder="打一句話給大家…" style="flex:1;min-width:0"><button class="btn ghost" type="button" data-act="msg">送出</button></div>
+      <details id="finDet" ${drafts.finOpen ? "open" : ""}><summary>我跑完了</summary>
+        <div class="stack" style="margin-top:10px">
+          <div class="field"><label for="actKm">手錶上的距離(選填,km)</label><input type="number" inputmode="decimal" step="0.01" id="actKm" data-draft="actKm" value="${D("actKm")}" placeholder="${run.plan ? run.plan.distanceKm : ""}"></div>
+          <button class="btn primary" type="button" data-act="finish" ${busy.finish ? "disabled" : ""}>結束我的跑步</button>
+        </div></details>` : me && me.runState === "finished" ? `<div class="banner">你已經完成了。等其他人回來,一起拍張照吧。</div>` : ""}
+    ${isOrganizer() ? `<button class="chip" type="button" data-act="endAll" style="align-self:flex-start">直接結束這次跑步</button>` : ""}
+  </section>`;
+}
+
+function results(){
+  const run = cur.run; const plan = run.plan || {};
+  const fin = cur.members.filter(m => m.status !== "cant" && m.finishAt);
+  const rows = fin.map(m => { const t = m.finishAt - run.startAt; const d = +m.actualKm || plan.distanceKm || 0; return { m, t, d, pace: d ? t / 1000 / d : 0 }; });
+  const dist = rows.length ? Math.max(...rows.map(r => r.d)) : plan.distanceKm || 0;
+  const time = rows.length ? Math.max(...rows.map(r => r.t)) : (run.finishedAt || Date.now()) - run.startAt;
+  const pace = dist ? time / 1000 / dist : 0;
+  return { rows, dist, time, pace };
+}
+
+function finishedHTML(me){
+  const run = cur.run; const R = results();
+  const photos = cur.members.filter(m => m.photoUrl);
+  return `<section class="panel stack" aria-labelledby="doneH">
+    <div><div class="eyebrow">完成</div><h2 id="doneH" style="font-size:22px">${esc(run.title || "一起跑")}</h2></div>
+    <div class="stats">
+      <div class="stat"><b>${R.dist ? R.dist.toFixed(1) : "—"}<small style="font-size:16px"> km</small></b><small>距離</small></div>
+      <div class="stat"><b>${fmtClock(R.time)}</b><small>時間</small></div>
+      <div class="stat"><b>${fmtPace(R.pace)}</b><small>平均配速 /km</small></div>
+    </div>
+    ${R.rows.length ? `<div class="small">${R.rows.sort((a, b) => a.t - b.t).map(r => `<div class="row" style="justify-content:space-between;border-bottom:1px dashed var(--line);padding:5px 0"><span><b class="num" style="color:${colorOf(r.m.bib)}">${r.m.bib}</b> ${esc(r.m.nickname || memberName(r.m.id))}</span><span class="num">${fmtClock(r.t)} · ${fmtPace(r.pace)}/km</span></div>`).join("")}</div>` : ""}
+    ${me && writable() && me.status !== "cant" && !me.finishAt ? `<div class="banner stack" style="gap:8px"><b>你還沒登記這次的成績</b>
+      <div class="row"><input type="number" inputmode="decimal" step="0.01" id="lateKm" data-draft="lateKm" value="${D("lateKm")}" placeholder="跑了幾公里(${run.plan ? run.plan.distanceKm : ""})" style="flex:1;min-width:0"><button class="btn dark" type="button" data-act="lateLog">登記</button></div></div>` : ""}
+    ${me && writable() ? `<div class="stack">
+      <div class="field"><label for="photo">上傳一張這次的照片</label><input type="file" id="photo" accept="image/*"><span class="hint">會自動做成分享圖:誰一起跑、距離、路線、配速。</span></div>
+      <div class="cardout"><canvas id="shareCanvas" width="1080" height="1350" aria-label="分享圖預覽"></canvas>
+        <div class="row"><button class="btn primary" type="button" data-act="saveCard">下載分享圖</button>${!downloads ? `<span class="small muted">手機上可以長按圖片儲存。</span>` : ""}</div></div>
+    </div>` : ""}
+    ${kudosHTML(me)}
+    ${photos.length ? `<div><div class="eyebrow" style="margin-bottom:6px">大家的照片</div><div class="gallery">${photos.map(m => `<img src="${esc(m.photoUrl)}" alt="${esc(m.nickname || "")} 的照片" loading="lazy">`).join("")}</div></div>` : ""}
+  </section>`;
+}
+
+function addWeek(when){
+  const d = new Date(when); if(isNaN(d)) return null; d.setDate(d.getDate() + 7);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+function seriesBar(){
+  const run = cur.run; if(!run || run.repeat !== "weekly") return "";
+  const d = new Date(run.when);
+  const next = run.nextRunId ? runs.find(r => r.id === run.nextRunId) : null;
+  const nd = next ? new Date(next.when) : null;
+  return `<div class="banner row" style="justify-content:space-between"><span><b>固定團</b> · 每週${isNaN(d) ? "" : WD[d.getDay()] + " " + hhmm(d)}${run.prevRunId ? ` · <a href="#run-${esc(run.prevRunId)}">上一場</a>` : ""}</span>
+    ${run.nextRunId ? `<button class="btn ghost" type="button" data-open="${esc(run.nextRunId)}">下一場${nd && !isNaN(nd) ? ` ${nd.getMonth() + 1}/${nd.getDate()}` : ""} →</button>`
+      : writable() ? `<button class="btn dark" type="button" data-act="nextRun" ${busy.nextRun ? "disabled" : ""}>建立下週這一場</button>` : ""}</div>`;
+}
+
+function kudosList(){ return cur.events.filter(e => e.type === "kudos" && e.to); }
+function kudosHTML(me){
+  const ks = kudosList();
+  const others = cur.members.filter(m => m.id !== meId && m.status !== "cant");
+  const sent = new Set(ks.filter(k => k.by === meId).map(k => k.to + "|" + k.kudo));
+  const pick = drafts.kudoTo || (others[0] && others[0].id) || "";
+  const form = me && writable() && others.length ? `<div class="stack" style="gap:8px">
+      <div class="chips" role="group" aria-label="要謝謝誰">${others.map(m => `<button type="button" class="chip" data-kto="${esc(m.id)}" aria-pressed="${m.id === pick}">${esc(m.nickname || memberName(m.id))}</button>`).join("")}</div>
+      <div class="chips" role="group" aria-label="想說什麼">${KUDOS.map(([k, l]) => `<button type="button" class="chip" data-kudo="${k}" ${sent.has(pick + "|" + k) ? 'aria-pressed="true" disabled' : ""}>${l}</button>`).join("")}</div></div>` : "";
+  const wall = ks.length ? `<div class="stack" style="gap:6px">${ks.slice().reverse().map(k => { const a = memberOf(k.by), b = memberOf(k.to);
+      return `<div class="small"><b style="color:${a ? colorOf(a.bib) : "inherit"}">${esc(memberName(k.by))}</b> → <b style="color:${b ? colorOf(b.bib) : "inherit"}">${esc(memberName(k.to))}</b>:${esc(kudoLabel(k.kudo))}</div>`; }).join("")}</div>` : "";
+  if(!form && !wall) return "";
+  return `<div class="stack" style="gap:10px"><div class="eyebrow">互相感謝</div>${form}${wall}</div>`;
+}
+
+function runView(){
+  if(!cur.runLoaded) return `<div class="panel"><span class="spin"></span> 載入中…</div>`;
+  const run = cur.run;
+  if(!run) return `<div class="panel stack"><h2>找不到這場跑步</h2><p class="muted">它可能已經被刪除了。</p><button class="btn ghost" type="button" data-act="home">回到列表</button></div>`;
+  const me = memberOf(meId);
+  const d = run.when ? new Date(run.when) : null;
+  const phase = run.status || "planning";
+  const left = [];
+  if(phase === "planning"){ left.push(joinHTML(me)); left.push(planHTML()); }
+  if(phase === "running"){ left.push(liveHTML(me)); left.push(planHTML()); }
+  if(phase === "finished"){ left.push(finishedHTML(me)); left.push(planHTML()); }
+  const right = [];
+  if(phase === "planning") right.push(preRunHTML(me));
+  right.push(`<section class="panel stack" aria-labelledby="peopleH"><h2 id="peopleH">一起跑的人</h2>${bibsHTML()}</section>`);
+  right.push(`<section class="panel stack" aria-labelledby="feedH"><div class="row" style="justify-content:space-between"><h2 id="feedH">即時動態</h2><span class="small muted">有新狀態會響一聲</span></div>${feedHTML()}</section>`);
+  return `<div class="stack">
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div style="min-width:0"><div class="eyebrow">${{ planning: "報名中", running: "跑步中", finished: "已完成" }[phase]}${d && !isNaN(d) ? ` · ${d.getMonth()+1}/${d.getDate()} ${hhmm(d)}` : ""}${run.city ? " · " + esc(run.city) : ""}</div>
+        <h1 style="font-size:28px;font-weight:900;overflow-wrap:anywhere">${esc(run.title || "一起跑")}</h1>
+        <div class="small muted">${(run.purposes || []).map(pLabel).join("、")}${run.targetKm ? ` · 目標 ${esc(run.targetKm)} km` : ""}${run.endWish ? ` · 結束在 ${esc(run.endWish)}` : ""}${run.mustPass ? ` · 必經 ${esc(run.mustPass)}` : ""}</div></div>
+      <button class="btn ghost" type="button" data-act="home">全部跑步</button>
+    </div>
+    ${seriesBar()}
+    <div class="cols"><div class="stack">${left.join("")}</div><div class="stack">${right.join("")}</div></div>
+  </div>`;
+}
+
+function statsView(){
+  if(!db) return permNote() || `<div class="panel">打開 Claude 裡的這個頁面才看得到排行榜。</div>`;
+  const [y, m] = statsMonth.split("-").map(Number);
+  const agg = {};
+  for(const r of stats.rows){ const a = agg[r.uid] || (agg[r.uid] = { uid: r.uid, km: 0, ms: 0, runs: 0, nick: "" });
+    a.km += +r.km || 0; a.ms += +r.ms || 0; a.runs++; if(r.nickname) a.nick = r.nickname; }
+  const list = Object.values(agg).sort((a, b) => b.km - a.km);
+  const maxKm = list.length ? list[0].km : 1;
+  const totalKm = list.reduce((t, a) => t + a.km, 0);
+  const runIds = new Set(stats.rows.map(r => r.runId));
+  const nameOf = a => a.nick || names[a.uid] || "跑友";
+  const lb = !stats.loaded ? `<div class="empty"><span class="spin"></span></div>`
+    : list.length ? `<div class="lb">${list.map((a, i) => `<div class="lbrow ${i < 3 ? "top" : ""} ${a.uid === meId ? "me" : ""}">
+        <div class="rk">${i + 1}</div>
+        <div style="min-width:0"><div class="nm">${esc(nameOf(a))}</div><div class="small muted">${a.runs} 次 · 平均 ${fmtPace(a.km ? a.ms / 1000 / a.km : 0)}/km</div><div class="bar"><i style="width:${Math.max(4, a.km / maxKm * 100).toFixed(1)}%"></i></div></div>
+        <div class="kmv">${a.km.toFixed(1)}<small>KM</small></div></div>`).join("")}</div>`
+    : `<div class="empty">這個月還沒有人完成跑步。跑完按「結束我的跑步」,就會記到這裡。</div>`;
+  // 我的紀錄
+  const mine = stats.mine;
+  const myKm = mine.reduce((t, r) => t + (+r.km || 0), 0), myMs = mine.reduce((t, r) => t + (+r.ms || 0), 0);
+  const bud = {}; mine.forEach(r => (r.buddies || []).forEach(b => bud[b] = (bud[b] || 0) + 1));
+  const topBud = Object.entries(bud).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const recent = mine.slice().sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 6);
+  const myPanel = !meId ? "" : `<section class="panel stack" aria-labelledby="mineH">
+      <h2 id="mineH">我的紀錄</h2>
+      <div class="stats">
+        <div class="stat"><b>${myKm.toFixed(1)}<small style="font-size:16px"> km</small></b><small>總距離</small></div>
+        <div class="stat"><b>${mine.length}</b><small>次一起跑</small></div>
+        <div class="stat"><b>${fmtPace(myKm ? myMs / 1000 / myKm : 0)}</b><small>平均配速 /km</small></div>
+      </div>
+      ${topBud.length ? `<div><div class="eyebrow" style="margin-bottom:6px">最常一起跑的人</div><div class="chips">${topBud.map(([id, n]) => `<span class="chip">${esc(names[id] || "跑友")} · ${n} 次</span>`).join("")}</div></div>` : ""}
+      ${recent.length ? `<div class="small">${recent.map(r => { const d = new Date(r.at); return `<div class="row" style="justify-content:space-between;border-bottom:1px dashed var(--line);padding:6px 0"><a href="#run-${esc(r.runId)}">${isNaN(d) ? "" : (d.getMonth() + 1) + "/" + d.getDate()} ${esc(r.runTitle || "一起跑")}</a><span class="num">${(+r.km || 0).toFixed(1)} km · ${fmtPace(r.km ? r.ms / 1000 / r.km : 0)}</span></div>`; }).join("")}</div>`
+        : `<div class="empty small">完成第一場之後,這裡會出現你的距離、配速,還有最常一起跑的人。</div>`}
+    </section>`;
+  return `<div class="cols">
+    <section class="panel stack" aria-labelledby="lbH">
+      <div class="row" style="justify-content:space-between"><div><div class="eyebrow">這個月一起跑了幾公里</div><h2 id="lbH" style="font-size:22px">${y} 年 ${m} 月排行榜</h2></div>
+        <div class="monthnav"><button type="button" data-month="-1" aria-label="上個月">‹</button><button type="button" data-month="1" aria-label="下個月">›</button></div></div>
+      <div class="stats">
+        <div class="stat"><b>${totalKm.toFixed(1)}<small style="font-size:16px"> km</small></b><small>大家加起來</small></div>
+        <div class="stat"><b>${runIds.size}</b><small>場跑步</small></div>
+        <div class="stat"><b>${list.length}</b><small>位跑友</small></div>
+      </div>
+      ${lb}
+      <p class="small muted" style="margin:0">排的是一起跑的距離,不是速度。慢慢跑、常常跑,一樣排前面。</p>
+    </section>
+    <div class="stack">${permNote()}${myPanel}</div>
+  </div>`;
+}
+
+/* ===================== 互動 ===================== */
+document.addEventListener("input", e => {
+  const k = e.target.dataset && e.target.dataset.draft; if(k){ drafts[k] = e.target.value; }
+});
+document.addEventListener("toggle", e => { if(e.target && e.target.id === "finDet") drafts.finOpen = e.target.open; if(e.target && e.target.id === "chkDet") drafts.chkOpen = e.target.open; }, true);
+document.addEventListener("change", e => {
+  const ch = e.target.dataset && e.target.dataset.chk;
+  if(ch && cur.id){ const d = store.get("chk:" + cur.id) || {}; d[ch] = e.target.checked; store.set("chk:" + cur.id, d); render(); return; }
+  const ck = e.target.dataset && e.target.dataset.draftCheck; if(ck){ drafts[ck] = e.target.checked; }
+  if(e.target.id === "photo") onPhoto(e.target.files && e.target.files[0]);
+});
+document.addEventListener("click", async e => {
+  const chip = e.target.closest("[data-chip]");
+  if(chip){ const k = chip.dataset.chip; const def = k === "n_purposes" ? ["train"] : (cur.run && cur.run.purposes) || [];
+    const s = new Set(drafts[k] || def); s.has(chip.dataset.v) ? s.delete(chip.dataset.v) : s.add(chip.dataset.v); drafts[k] = [...s]; render(); return; }
+  const tab = e.target.closest("[data-tab]");
+  if(tab){ if(tab.dataset.tab === "stats") openStats(); else goHome(); window.scrollTo(0, 0); return; }
+  const mn = e.target.closest("[data-month]");
+  if(mn){ const [y, m] = statsMonth.split("-").map(Number); const d = new Date(y, m - 1 + (+mn.dataset.month), 1); statsMonth = monthKey(d); subscribeStats(); render(); return; }
+  const open = e.target.closest("[data-open]"); if(open){ openRun(open.dataset.open); window.scrollTo(0, 0); return; }
+  const st = e.target.closest("[data-st]"); if(st) return setStatus(st.dataset.st);
+  const md = e.target.closest("[data-mood]");
+  if(md) return guard("mood", async () => { await updateMe({ mood: md.dataset.mood }); await postEvent("mood", { mood: md.dataset.mood }); });
+  const kt = e.target.closest("[data-kto]"); if(kt){ drafts.kudoTo = kt.dataset.kto; render(); return; }
+  const kd = e.target.closest("[data-kudo]");
+  if(kd) return guard("kudo", async () => { const others = cur.members.filter(m => m.id !== meId && m.status !== "cant");
+    const to = drafts.kudoTo || (others[0] && others[0].id); if(!to) return;
+    await postEvent("kudos", { to, kudo: kd.dataset.kudo }); toast("已送出"); cardImg = null; });
+  const q = e.target.closest("[data-q]"); if(q) return quick(q.dataset.q);
+  const a = e.target.closest("[data-act]"); if(!a) return;
+  const act = a.dataset.act;
+  if(act === "home"){ goHome(); return; }
+  if(act === "createRun") return createRun();
+  if(act === "join") return join();
+  if(act === "plan") return guard("plan", async () => { const plan = await makePlan(); await db.doc("runs/" + cur.id).update({ plan }); await postEvent("plan"); toast("路線好了!"); });
+  if(act === "startIn") return guard("startIn", async () => { const n = Math.round(+drafts.startIn || 5); if(!(n > 0 && n <= 180)) throw { message: "請填 1–180 分鐘" };
+    await db.doc("runs/" + cur.id).update({ startInAt: Date.now() + n * 60000 }); await postEvent("startIn", { minutes: n }); });
+  if(act === "start") return guard("start", async () => { await db.doc("runs/" + cur.id).update({ status: "running", startAt: Date.now(), startedBy: meId });
+    for(const m of cur.members) if(m.id === meId && m.status !== "cant") await updateMe({ runState: "running" }); await postEvent("start"); });
+  if(act === "msg") return guard("msg", async () => { const t = String(drafts.msg || "").trim().slice(0, 140); if(!t) return; await postEvent("msg", { text: t }); drafts.msg = ""; });
+  if(act === "finish") return guard("finish", async () => { const run = cur.run; const ak = parseFloat(drafts.actKm); const now = Date.now();
+    const d = ak > 0 ? ak : (run.plan && run.plan.distanceKm) || 0; const pace = d ? fmtPace((now - run.startAt) / 1000 / d) + "/km" : "";
+    await updateMe({ runState: "finished", finishAt: now, actualKm: ak > 0 ? ak : null }); await postEvent("finish", { pace });
+    await writeLog(now - run.startAt, d); });
+  if(act === "lateLog") return guard("lateLog", async () => { const run = cur.run; const ak = parseFloat(drafts.lateKm);
+    const d = ak > 0 ? ak : (run.plan && run.plan.distanceKm) || 0; const end = run.finishedAt || Date.now();
+    await updateMe({ runState: "finished", finishAt: end, actualKm: ak > 0 ? ak : null }); await writeLog(end - run.startAt, d); toast("記好了"); });
+  if(act === "nextRun") return guard("nextRun", createNext);
+  if(act === "endAll") return guard("endAll", async () => { await db.doc("runs/" + cur.id).update({ status: "finished", finishedAt: Date.now() }); await postEvent("allDone"); });
+  if(act === "saveCard") return saveCard();
+  if(act === "gpx") return exportGpx();
+  if(act === "ics") return exportIcs();
+});
+
+async function writeLog(ms, kmVal){
+  const run = cur.run; const me = memberOf(meId); if(!run || !me) return;
+  const d = new Date(run.startAt || Date.now());
+  await db.doc(`log/${cur.id}__${meId}`).set({
+    uid: meId, nickname: me.nickname || "", runId: cur.id, runTitle: run.title || "", km: +(+kmVal || 0).toFixed(2), ms: Math.max(0, ms || 0),
+    at: run.startAt || Date.now(), month: monthKey(d), seriesId: run.seriesId || null,
+    buddies: cur.members.filter(m => m.id !== meId && m.status !== "cant").map(m => m.id).slice(0, 40)
+  });
+}
+async function createNext(){
+  const run = cur.run; const when = addWeek(run.when); if(!when) throw { message: "這場沒有日期,沒辦法排下一場" };
+  const ref = await db.collection("runs").add({
+    title: run.title, when, city: run.city, purposes: run.purposes || [], targetKm: run.targetKm || null, endWish: run.endWish || "", mustPass: run.mustPass || "",
+    status: "planning", createdBy: meId, createdAt: Date.now(), plan: run.plan ? { ...run.plan, carried: true } : null,
+    repeat: "weekly", seriesId: run.seriesId || ("s" + Date.now().toString(36)), prevRunId: cur.id
+  });
+  await db.doc("runs/" + cur.id).update({ nextRunId: ref.id, seriesId: run.seriesId || null });
+  openRun(ref.id); toast("下週這一場建好了,沿用這次的路線。");
+}
+
+async function createRun(){
+  await guard("createRun", async () => {
+    const title = String(drafts.n_title || "").trim() || "一起跑";
+    const when = drafts.n_when || $("#n_when").value;
+    const ref = await db.collection("runs").add({
+      title: title.slice(0, 60), when, city: String(drafts.n_city ?? "台北").trim().slice(0, 30) || "台北",
+      purposes: drafts.n_purposes || ["train"], targetKm: parseFloat(drafts.n_km) || null,
+      endWish: String(drafts.n_end || "").trim().slice(0, 80), mustPass: String(drafts.n_must || "").trim().slice(0, 120),
+      status: "planning", createdBy: meId, createdAt: Date.now(), plan: null,
+      repeat: drafts.n_weekly ? "weekly" : null, seriesId: drafts.n_weekly ? "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) : null
+    });
+    ["n_title", "n_km", "n_end", "n_must", "n_purposes", "n_weekly"].forEach(k => delete drafts[k]);
+    openRun(ref.id); toast("房間建好了,把這頁分享給朋友,讓他們按「加入」。");
+  });
+}
+
+async function join(){
+  await guard("join", async () => {
+    const nick = String(drafts.j_nick ?? store.get("nick") ?? "").trim().slice(0, 20);
+    const startText = String(drafts.j_start ?? store.get("start") ?? "").trim();
+    if(!nick) throw { message: "填一下你的稱呼" };
+    if(!startText) throw { message: "填一下你從哪裡出發" };
+    const paceRaw = drafts.j_pace ?? store.get("pace") ?? "";
+    const pace = parsePace(paceRaw);
+    const start = await geocode(startText, cur.run.city);
+    const bib = Math.max(0, ...cur.members.map(m => m.bib || 0)) + 1;
+    await db.doc(`runs/${cur.id}/members/${meId}`).set({
+      nickname: nick, bib, start, startLabel: startText.slice(0, 80), pace,
+      purposes: drafts.j_purposes || cur.run.purposes || [], wantStay: String(drafts.j_stay || "").trim().slice(0, 80),
+      mustPass: String(drafts.j_must || "").trim().slice(0, 80), status: "joined", joinedAt: Date.now(), updatedAt: Date.now(),
+      ice: String(drafts.j_ice ?? store.get("ice") ?? "").trim().slice(0, 60)
+    });
+    store.set("nick", nick); store.set("start", startText); if(paceRaw) store.set("pace", paceRaw);
+    if(drafts.j_ice != null) store.set("ice", String(drafts.j_ice).trim());
+    await postEvent("join");
+    if(start.approx && start.confidence === "low") toast("位置是大概估的,可以改貼 Google 地圖連結更準。");
+  });
+}
+
+async function setStatus(s){
+  await guard("st_" + s, async () => {
+    const eta = Math.round(+drafts.eta || 0);
+    if(s === "back_in"){ await updateMe({ status: "joined", statusAt: Date.now() }); await postEvent("back_in"); return; }
+    await updateMe({ status: s, etaMin: s === "onway" && eta > 0 ? eta : null, statusAt: Date.now() });
+    await postEvent(s, s === "onway" && eta > 0 ? { minutes: eta } : {});
+  });
+}
+async function quick(k){
+  await guard("q_" + k, async () => {
+    const patch = { lastFlag: k, flagAt: Date.now() };
+    if(k === "pause") patch.runState = "pause";
+    if(k === "resume"){ patch.runState = "running"; patch.lastFlag = null; }
+    await updateMe(patch); await postEvent(k);
+  });
+}
+let finishing = false;
+async function maybeFinishAll(){
+  const run = cur.run; if(!run || run.status !== "running" || finishing || !writable()) return;
+  const active = cur.members.filter(m => m.status !== "cant");
+  if(!active.length || !active.every(m => m.runState === "finished")) return;
+  const last = active.reduce((a, m) => (m.finishAt || 0) > (a.finishAt || 0) ? m : a, active[0]);
+  if(last.id !== meId) return;  // 只由最後完成的人寫一次
+  finishing = true;
+  try{ await db.doc("runs/" + cur.id).update({ status: "finished", finishedAt: Date.now() }); await postEvent("allDone"); } catch(e){} finally { finishing = false; }
+}
+
+/* ===================== 分享圖 ===================== */
+let cardImg = null;
+async function onPhoto(file){
+  if(!file) return;
+  if(!/^image\//.test(file.type)) return toast("請選一張圖片");
+  const url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+  photoLocal = url; cardImg = null; render();
+  if(assets && writable()){
+    try{
+      const small = await shrink(url, 1600);
+      const up = await assets.upload(small);
+      await updateMe({ photoUrl: up.url, photoId: up.id });
+    }catch(e){ toast("照片沒有存到雲端,但分享圖還是可以下載。"); }
+  }
+}
+function shrink(dataUrl, max){
+  return new Promise(res => { const im = new Image(); im.onload = () => {
+    const s = Math.min(1, max / Math.max(im.width, im.height)); const c = document.createElement("canvas"); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+    c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); c.toBlob(b => res(b), "image/jpeg", 0.86); }; im.src = dataUrl; });
+}
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+async function bindCanvas(){
+  const cv = $("#shareCanvas"); if(!cv || !cur.run) return;
+  try{ await Promise.all([document.fonts.load('800 italic 120px "Barlow Condensed"'), document.fonts.load('800 120px "Barlow Condensed"'), document.fonts.load('900 40px "Noto Sans TC"')]); }catch(e){}
+  const src = photoLocal || (memberOf(meId) || {}).photoUrl || null;
+  if(src && (!cardImg || cardImg.src !== src)){
+    const im = new Image(); im.crossOrigin = "anonymous";
+    await new Promise(r => { im.onload = r; im.onerror = r; im.src = src; });
+    cardImg = im.naturalWidth ? im : null;
+  }
+  drawCard(cv, src ? cardImg : null);
+}
+function drawCard(cv, img){
+  const g = cv.getContext("2d"), W = cv.width, H = cv.height, run = cur.run, plan = run.plan || {}, R = results();
+  const accent = "#FF5B40", route = "#FFFFFF";
+  g.fillStyle = "#111411"; g.fillRect(0, 0, W, H);
+  if(img){ const s = Math.max(W / img.naturalWidth, H / img.naturalHeight); const w = img.naturalWidth * s, h = img.naturalHeight * s; g.drawImage(img, (W - w) / 2, (H - h) / 2, w, h); }
+  else { g.strokeStyle = "rgba(255,255,255,.06)"; g.lineWidth = 6; for(let i = -H; i < W; i += 70){ g.beginPath(); g.moveTo(i, H); g.lineTo(i + H * 0.6, 0); g.stroke(); } }
+  let gr = g.createLinearGradient(0, H * 0.35, 0, H); gr.addColorStop(0, "rgba(10,12,10,0)"); gr.addColorStop(0.55, "rgba(10,12,10,.72)"); gr.addColorStop(1, "rgba(10,12,10,.92)"); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  gr = g.createLinearGradient(0, 0, 0, 260); gr.addColorStop(0, "rgba(10,12,10,.65)"); gr.addColorStop(1, "rgba(10,12,10,0)"); g.fillStyle = gr; g.fillRect(0, 0, W, 260);
+  // 標頭
+  g.fillStyle = "#fff"; g.font = 'italic 800 54px "Barlow Condensed", sans-serif'; g.textBaseline = "alphabetic";
+  g.fillText("PACE", 64, 104); const pw = g.measureText("PACE ").width; g.fillStyle = accent; g.fillText("TOGETHER", 64 + pw, 104);
+  const d = new Date(run.startAt || run.when || Date.now());
+  g.fillStyle = "rgba(255,255,255,.85)"; g.font = '700 30px "Noto Sans TC", sans-serif';
+  g.fillText(`${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}  ${run.city || ""}`, 64, 150);
+  // 路線
+  const pts = (plan.route || []).filter(validPt);
+  if(pts.length > 1){
+    const box = { x: W - 64 - 330, y: 70, w: 330, h: 330 };
+    const lat0 = pts[0].lat, kx = Math.cos(lat0 * Math.PI / 180);
+    const xs = pts.map(p => p.lng * kx), ys = pts.map(p => -p.lat);
+    const mnx = Math.min(...xs), mxx = Math.max(...xs), mny = Math.min(...ys), mxy = Math.max(...ys);
+    const s = Math.min(box.w / Math.max(mxx - mnx, 1e-6), box.h / Math.max(mxy - mny, 1e-6));
+    const ox = box.x + (box.w - (mxx - mnx) * s) / 2, oy = box.y + (box.h - (mxy - mny) * s) / 2;
+    g.lineJoin = "round"; g.lineCap = "round";
+    g.beginPath(); pts.forEach((p, i) => { const x = ox + (p.lng * kx - mnx) * s, y = oy + (-p.lat - mny) * s; i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 20; g.stroke(); g.strokeStyle = route; g.lineWidth = 10; g.stroke();
+    const p0 = pts[0], x0 = ox + (p0.lng * kx - mnx) * s, y0 = oy + (-p0.lat - mny) * s;
+    g.fillStyle = accent; g.beginPath(); g.arc(x0, y0, 15, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 5; g.stroke();
+  }
+  // 標題
+  g.fillStyle = "#fff"; g.font = '900 62px "Noto Sans TC", sans-serif';
+  wrapText(g, run.title || "一起跑", 64, H - 520, W - 128, 74, 2);
+  // 數據
+  const cols = [[R.dist ? R.dist.toFixed(1) : "—", "KM"], [fmtClock(R.time), "TIME"], [fmtPace(R.pace), "PACE /KM"]];
+  const cw = (W - 128) / 3;
+  cols.forEach(([v, l], i) => { const x = 64 + i * cw;
+    g.fillStyle = accent; g.fillRect(x, H - 380, 8, 150);
+    g.fillStyle = "#fff"; g.font = '800 112px "Barlow Condensed", sans-serif'; g.fillText(v, x + 26, H - 278);
+    g.fillStyle = "rgba(255,255,255,.7)"; g.font = '700 30px "Barlow Condensed", sans-serif'; g.fillText(l, x + 28, H - 238); });
+  // 收到的感謝(挑一句)
+  const ks = kudosList(); const mine = ks.filter(k => k.to === meId); const k0 = mine[0] || ks[0];
+  if(k0){ g.fillStyle = "#FFD08A"; g.font = '700 32px "Noto Sans TC", sans-serif';
+    wrapText(g, `「${kudoLabel(k0.kudo)}」— ${memberName(k0.by)} → ${memberName(k0.to)}${ks.length > 1 ? `  +${ks.length - 1} 則感謝` : ""}`, 64, H - 590, W - 128, 40, 1); }
+  // 一起跑的人
+  const ppl = cur.members.filter(m => m.status !== "cant").map(m => m.nickname || memberName(m.id));
+  g.fillStyle = "rgba(255,255,255,.7)"; g.font = '700 28px "Noto Sans TC", sans-serif'; g.fillText(`${ppl.length} 人一起跑`, 64, H - 150);
+  g.fillStyle = "#fff"; g.font = '900 40px "Noto Sans TC", sans-serif'; wrapText(g, ppl.join("、"), 64, H - 96, W - 128, 50, 2);
+}
+function wrapText(g, text, x, y, maxW, lh, maxLines){
+  const lines = []; let line = "";
+  for(const ch of Array.from(String(text))){ if(g.measureText(line + ch).width > maxW && line){ lines.push(line); line = ch; } else line += ch; }
+  if(line) lines.push(line);
+  const out = lines.slice(0, maxLines); if(lines.length > maxLines) out[maxLines - 1] = out[maxLines - 1].slice(0, -1) + "…";
+  out.forEach((l, i) => g.fillText(l, x, y + i * lh));
+}
+async function saveFile(name, text, type){
+  const blob = new Blob([text], { type });
+  if(downloads){
+    try{ await downloads.save({ filename: name, data: blob }); toast("已存好"); return; }
+    catch(e){ if(e && e.code === "declined") return; }
+  }
+  toast("這個畫面不能直接存檔,請在電腦版的 Claude 開啟再下載。");
+}
+const xmlEsc = s => String(s || "").replace(/[<>&"']/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&apos;"}[c]));
+const fileSafe = s => String(s || "run").replace(/[^\w\u4e00-\u9fff-]+/g, "_").slice(0, 30);
+async function exportGpx(){
+  const run = cur.run, plan = run.plan; if(!plan) return toast("先讓 AI 規劃路線");
+  const pts = [plan.meet, ...plan.route.slice(1), plan.end].filter(validPt);
+  const wpts = [["集合點", plan.meet], ["終點", plan.end], ...(plan.stops || []).map(s => [s.name, s])].filter(x => validPt(x[1]));
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Pace Together" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>${xmlEsc(run.title)}</name></metadata>
+${wpts.map(([n, p]) => `<wpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"><name>${xmlEsc(n)}</name></wpt>`).join("\n")}
+<rte><name>${xmlEsc(run.title)}</name>
+${pts.map(p => `<rtept lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"></rtept>`).join("\n")}
+</rte>
+<trk><name>${xmlEsc(run.title)}</name><trkseg>
+${pts.map(p => `<trkpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"></trkpt>`).join("\n")}
+</trkseg></trk>
+</gpx>`;
+  await saveFile(fileSafe(run.title) + ".gpx", gpx, "application/gpx+xml");
+}
+async function exportIcs(){
+  const run = cur.run; const d = new Date(run.when); if(isNaN(d)) return toast("這場沒有時間");
+  const mins = Math.max(45, Math.round((((run.plan && run.plan.distanceKm) || run.targetKm || 6) * (groupPace(cur.members) || 400)) / 60) + 20);
+  const z = t => new Date(t).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const icsEsc = s => String(s || "").replace(/[\\;,]/g, m => "\\" + m).replace(/\n/g, "\\n");
+  const meet = run.plan && run.plan.meet;
+  const ics = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Pace Together//ZH","BEGIN:VEVENT",
+    "UID:" + cur.id + "@pace-together", "DTSTAMP:" + z(Date.now()), "DTSTART:" + z(d), "DTEND:" + z(d.getTime() + mins * 60000),
+    "SUMMARY:" + icsEsc("🏃 " + (run.title || "一起跑")),
+    meet ? "LOCATION:" + icsEsc(meet.name) : "", meet ? `GEO:${meet.lat.toFixed(5)};${meet.lng.toFixed(5)}` : "",
+    "DESCRIPTION:" + icsEsc((run.plan ? `約 ${run.plan.distanceKm} km` : "") + (run.repeat === "weekly" ? " · 每週固定團" : "")),
+    run.repeat === "weekly" ? "RRULE:FREQ=WEEKLY" : "",
+    "BEGIN:VALARM","TRIGGER:-PT60M","ACTION:DISPLAY","DESCRIPTION:" + icsEsc("一小時後一起跑"),"END:VALARM",
+    "END:VEVENT","END:VCALENDAR"].filter(Boolean).join("\r\n");
+  await saveFile(fileSafe(run.title) + ".ics", ics, "text/calendar");
+}
+
+async function saveCard(){
+  const cv = $("#shareCanvas"); if(!cv) return;
+  let blob = null;
+  try{ blob = await new Promise(r => cv.toBlob(r, "image/png")); }catch(e){}
+  if(!blob){ toast("這張照片不能匯出,換一張照片試試。"); return; }
+  const name = `pace-together-${(cur.run.title || "run").replace(/[^\w一-鿿-]+/g, "_").slice(0, 30)}.png`;
+  if(downloads){
+    try{ await downloads.save({ filename: name, data: blob }); toast("已存好"); return; }
+    catch(e){ if(e && e.code === "declined") return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const wrap = $(".cardout"); if(wrap && !wrap.querySelector("img")){ const im = document.createElement("img"); im.alt = "分享圖,長按或右鍵儲存"; im.src = url; wrap.appendChild(im); }
+  toast("長按或右鍵圖片就能儲存");
+}
+
+/* 計時器只更新畫面,不寫資料 */
+setInterval(() => {
+  document.querySelectorAll("[data-clock]").forEach(el => el.textContent = fmtClock(Date.now() - +el.dataset.clock));
+  document.querySelectorAll("[data-countdown]").forEach(el => { const ms = +el.dataset.countdown - Date.now(); el.textContent = ms > 0 ? "還有 " + fmtClock(ms) : "時間到了"; });
+}, 1000);
+</script>

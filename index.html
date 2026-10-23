@@ -1,0 +1,1048 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pace Together 一起跑</title>
+<meta name="description" content="在不同地方上班的朋友,約一個時間一起練跑。依目的自動規劃路線:間歇、跑圖案、跑完喝咖啡。免費、不用登入。">
+<meta property="og:title" content="Pace Together 一起跑">
+<meta property="og:description" content="約好時間,一起練。依目的自動規劃路線,匯出到手錶和 Google 地圖。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;1,800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* Layout: phone-first planner — three stacked steps (what / who / routes), results as swipeable route cards over one map */
+:root{
+  --bg:#EDEFEA; --surface:#FFFFFF; --surface-2:#E2E5DE; --ink:#131613; --muted:#5C6459; --line:#CBD0C6;
+  --accent:#E3402A; --accent-ink:#FFFFFF; --route:#2149D1; --ok:#1C8547; --warn:#A86A12; --danger:#C2261F;
+  --shadow:0 1px 0 rgba(19,22,19,.06),0 6px 18px -10px rgba(19,22,19,.25);
+  --display:"Barlow Condensed","Noto Sans TC","PingFang TC",sans-serif;
+  --body:"Noto Sans TC",-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1210; --surface:#181C19; --surface-2:#222823; --ink:#ECEFE9; --muted:#9AA396; --line:#2F3630;
+  --accent:#FF5B40; --accent-ink:#1A0602; --route:#7E9CFF; --ok:#4CC27E; --warn:#E3AA4D; --danger:#FF6E66;
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.7); color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(48px + env(safe-area-inset-bottom,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--route);outline-offset:2px}
+a{color:var(--route)}
+[hidden]{display:none!important}
+.wrap{max-width:1100px;margin:0 auto}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:16px 10px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand b{font-family:var(--display);font-weight:800;font-style:italic;font-size:28px;line-height:1;text-transform:uppercase;white-space:nowrap}
+@media (max-width:420px){.brand b{font-size:24px}.brand span{display:none}}
+.brand b i{color:var(--accent)}
+.brand span{color:var(--muted);font-size:13px}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;white-space:nowrap}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font-size:clamp(26px,6vw,40px);font-weight:900;line-height:1.15}
+h2{font-size:18px;font-weight:900}
+.eyebrow{font-family:var(--display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:var(--muted)}
+.lead{color:var(--muted);margin:.5em 0 0;max-width:62ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);min-width:0}
+.stack{display:flex;flex-direction:column;gap:14px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}body.shared #results{order:-1}}
+.step{display:flex;gap:10px;align-items:center}
+.step .n{font-family:var(--display);font-weight:800;font-size:30px;line-height:1;color:var(--accent);min-width:22px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mode{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;text-align:left}
+.mode b{display:block;font-size:15px}
+.mode span{font-size:12.5px;color:var(--muted)}
+.mode[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field>label{font-size:13px;font-weight:700}
+.hint{font-size:12px;color:var(--muted)}
+input[type=text],input[type=number],input[type=datetime-local],input[type=url],input[type=password],select,textarea{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+input:focus,select:focus,textarea:focus{border-color:var(--route);outline:none}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.ask{display:flex;gap:8px}
+.ask input{flex:1}
+.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:900;font-size:15px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.dark{background:var(--ink);color:var(--bg)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.block{width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.person{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:8px;align-items:start;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}
+.person .no{font-family:var(--display);font-weight:800;font-size:26px;line-height:1.3;text-align:center}
+.person .f{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);gap:6px}
+.person .f2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:6px;margin-top:6px}
+.person input,.person select{padding:7px 9px;font-size:14px;background:var(--surface)}
+.x{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;padding:4px 6px}
+.x:hover{color:var(--danger)}
+.map{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--surface-2);position:relative}
+@media (max-width:600px){.map{height:340px}}
+.map svg{display:block;width:100%;height:100%}
+.leaflet-container{font:inherit;background:var(--surface-2)}
+.pin{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;font-size:13px;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);font-family:var(--body)}
+.cands{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:600px){.cands{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}.cand{min-width:78%;scroll-snap-align:start}}
+.cand{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;text-align:left}
+.cand[aria-pressed="true"]{border-color:var(--route);box-shadow:inset 0 0 0 1px var(--route)}
+.cand .k{font-family:var(--display);font-weight:800;font-size:13px;letter-spacing:.1em;color:var(--muted)}
+.cand b{display:block;font-size:15px;margin:2px 0}
+.cand span{font-size:13px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:600px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{border-left:3px solid var(--accent);padding-left:10px}
+.stat b{display:block;font-family:var(--display);font-weight:800;font-size:28px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:12px}
+.lvl-low{color:var(--ok)}.lvl-mid{color:var(--warn)}.lvl-high{color:var(--danger)}
+ul.why{margin:0;padding-left:1.15em}
+ul.why li{margin:3px 0}
+.places{display:flex;flex-direction:column}
+.place{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.place:last-child{border-bottom:0}
+.place .st{font-size:12.5px;white-space:nowrap}
+.plan{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:14px}
+.plan b{display:block;margin-bottom:2px}
+.progress{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+.banner{border-radius:10px;padding:10px 12px;font-size:14px;border:1px solid var(--line);background:var(--surface-2)}
+.banner.err{border-color:var(--danger);color:var(--danger)}
+.share{display:flex;gap:6px}
+.share input{flex:1;font-size:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;opacity:0;transition:.2s;pointer-events:none;max-width:calc(100% - 32px);z-index:2000}
+.toast.show{opacity:1}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);max-width:440px;width:calc(100% - 32px);padding:18px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+details summary{cursor:pointer;font-weight:700}
+.day{border-top:1px solid var(--line);padding-top:14px}
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.qgrid button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:11px 10px;font-weight:700;text-align:left;min-height:52px;font-size:14px}
+.qgrid button:hover{border-color:var(--ink)}
+.qgrid button.hot{border-color:var(--danger);color:var(--danger)}
+.qgrid button small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.mini{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:700}
+.mini[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.clock{font-family:var(--display);font-weight:800;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+footer{color:var(--muted);font-size:12px;margin-top:24px;line-height:1.7}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><b>Pace <i>Together</i></b><span>一起跑</span></div>
+    <button class="iconbtn" type="button" id="aiBtn">AI 設定</button>
+  </div>
+
+  <div id="sharedBanner" class="banner" hidden></div>
+
+  <div class="cols">
+    <!-- 左:輸入 -->
+    <div class="stack" id="inputs">
+      <section class="panel stack">
+        <div><div class="eyebrow">當我們一起跑</div>
+          <h1>在不同地方上班,<br>約一個時間一起練。</h1>
+          <p class="lead">說這次想練什麼。系統會依目的找起終點、挑車少的路、看那時候終點有哪些店開著,給你幾條路線,匯出到手錶或 Google 地圖就能跑。</p></div>
+        <div class="modes" role="group" aria-label="模式">
+          <button class="mode" type="button" data-mode="train" aria-pressed="true"><b>🏃 一起訓練</b><span>依目的規劃路線</span></button>
+          <button class="mode" type="button" data-mode="pace" aria-pressed="false"><b>🤝 配速不同</b><span>快慢一起跑,不掉隊</span></button>
+        </div>
+      </section>
+
+      <section class="panel stack" aria-labelledby="s1">
+        <div class="step"><span class="n">1</span><h2 id="s1">這次想練什麼</h2></div>
+        <div class="field"><label for="ask">用一句話說(可略過)</label>
+          <div class="ask"><input type="text" id="ask" placeholder="例如:週四下班在大安跑個 6K 愛心,跑完吃拉麵"><button class="btn dark" type="button" id="askBtn">帶入</button></div>
+          <span class="hint" id="askHint">會自動填好下面的選項。</span></div>
+        <div class="field"><label>目的</label><div class="chips" id="purposes" role="group" aria-label="目的"></div></div>
+        <div class="field" id="shapeField" hidden><label>圖案</label><div class="chips" id="shapes" role="group" aria-label="圖案"></div></div>
+        <div class="grid2">
+          <div class="field"><label for="when">時間</label><input type="datetime-local" id="when"></div>
+          <div class="field"><label for="km">想跑幾公里</label><input type="number" id="km" min="2" max="42" step="0.5" inputmode="decimal" value="6"></div>
+        </div>
+        <div class="field"><label for="dest">想在哪一帶跑(選填)</label><input type="text" id="dest" placeholder="例如:大安森林公園、松山區、河濱">
+          <span class="hint">不填的話,會找大家中間、交通方便的地方。</span></div>
+      </section>
+
+      <section class="panel stack" aria-labelledby="s2">
+        <div class="step"><span class="n">2</span><h2 id="s2">誰要來、從哪裡出發</h2></div>
+        <div class="stack" id="people" style="gap:8px"></div>
+        <div class="row"><button class="btn ghost" type="button" id="addPerson">+ 加一個人</button>
+          <span class="hint">出發地可以填公司、捷運站,或貼 Google 地圖連結。</span></div>
+        <div class="grid2"><div class="field"><label for="city">城市(讓地名更好找)</label><input type="text" id="city" value="台北"></div></div>
+        <button class="btn primary block" type="button" id="go">產生建議路線</button>
+        <div class="progress" id="progress" hidden><span class="spin" aria-hidden="true"></span><span id="progressText">找地點中…</span></div>
+        <div class="banner err" id="err" hidden></div>
+      </section>
+    </div>
+
+    <!-- 右:結果 -->
+    <div class="stack" id="results">
+      <section class="panel stack" aria-labelledby="s3">
+        <div class="step"><span class="n">3</span><h2 id="s3">建議路線</h2></div>
+        <div class="cands" id="cands"></div>
+        <div class="map" id="map" role="img" aria-label="路線地圖"></div>
+        <div id="detail" class="stack"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    地圖資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 貢獻者 · 路線 <a href="https://routing.openstreetmap.de" target="_blank" rel="noopener">FOSSGIS OSRM</a> · 地點 <a href="https://overpass-api.de" target="_blank" rel="noopener">Overpass API</a> · 地名 <a href="https://nominatim.org" target="_blank" rel="noopener">Nominatim</a><br>
+    路線是自動產生的建議,出發前請確認路況與安全。Pace Together 是開源專案,免費使用。
+  </footer>
+</div>
+
+<dialog id="aiDlg">
+  <form method="dialog" class="stack">
+    <h2>AI 設定(選用)</h2>
+    <p class="hint" style="margin:0">不設定也能完整使用。設定後,「用一句話說」會更聰明,路線也會多一段介紹。每次規劃大約只用 300–600 個 token,可以用有免費額度的服務(例如 Google Gemini、Groq、OpenRouter 的免費模型,或自己電腦上的 Ollama)。Key 只存在這個瀏覽器。</p>
+    <div class="field"><label for="aiUrl">API 網址(OpenAI 相容格式)</label><input type="url" id="aiUrl" placeholder="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"></div>
+    <div class="field"><label for="aiModel">模型</label><input type="text" id="aiModel" placeholder="gemini-2.0-flash"></div>
+    <div class="field"><label for="aiKey">API Key</label><input type="password" id="aiKey" autocomplete="off"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" value="clear" type="submit">清除</button><button class="btn dark" value="save" type="submit">儲存</button></div>
+  </form>
+</dialog>
+<dialog id="sendDlg">
+  <div class="stack">
+    <h2>傳到群組</h2>
+    <div class="plan" id="sendText" style="white-space:pre-wrap"></div>
+    <div class="row">
+      <a class="btn primary" id="sendLine" href="#" target="_blank" rel="noopener">傳到 LINE</a>
+      <button class="btn dark" type="button" id="sendCopy">複製</button>
+      <button class="btn ghost" type="button" id="sendClose">關閉</button>
+    </div>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+"use strict";
+/* ================= 設定(自架的人可以改這裡) ================= */
+const CONFIG = {
+  osrm: "https://routing.openstreetmap.de/routed-foot/route/v1/driving/",
+  overpass: ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"],
+  nominatim: "https://nominatim.openstreetmap.org/search",
+  tiles: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+  tilesAttr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  ai: { url: "", model: "", key: "" },   // 預設不用 AI;使用者可在「AI 設定」自己填
+};
+
+/* ================= 小工具 ================= */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const store = {
+  get(k, d = null){ try { const v = localStorage.getItem("pt:" + k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem("pt:" + k, JSON.stringify(v)); } catch(e){} }
+};
+function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 2400); }
+const COLORS = ["#E3402A","#2149D1","#1C8547","#A35BD6","#D4890F","#0F8C99","#C2337A","#6B7A12"];
+const R2 = Math.PI / 180;
+function km(a, b){ const dLa = (b.lat - a.lat) * R2, dLo = (b.lng - a.lng) * R2;
+  const h = Math.sin(dLa/2)**2 + Math.cos(a.lat*R2)*Math.cos(b.lat*R2)*Math.sin(dLo/2)**2; return 12742 * Math.asin(Math.sqrt(h)); }
+function pathKm(pts){ let d = 0; for(let i = 1; i < pts.length; i++) d += km(pts[i-1], pts[i]); return d; }
+const toXY = (p, o) => [(p.lng - o.lng) * 111.32 * Math.cos(o.lat * R2), (p.lat - o.lat) * 110.57];
+const fromXY = (x, y, o) => ({ lat: o.lat + y / 110.57, lng: o.lng + x / (111.32 * Math.cos(o.lat * R2)) });
+const valid = p => p && isFinite(p.lat) && isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180;
+const centroid = pts => ({ lat: pts.reduce((s, p) => s + p.lat, 0) / pts.length, lng: pts.reduce((s, p) => s + p.lng, 0) / pts.length });
+function fmtPace(sec){ if(!(sec > 0)) return "—"; const m = Math.floor(sec / 60), s = Math.round(sec % 60); return s === 60 ? `${m+1}'00"` : `${m}'${String(s).padStart(2,"0")}"`; }
+function parsePace(str){ str = String(str || "").trim(); if(!str) return null;
+  const m = str.match(/^(\d{1,2})\s*[:'’分]\s*(\d{1,2})/); if(m) return (+m[1]) * 60 + (+m[2]);
+  const f = parseFloat(str); return f > 2 && f < 20 ? Math.round(f * 60) : null; }
+function fmtDur(min){ min = Math.round(min); return min >= 60 ? `${Math.floor(min/60)} 小時 ${min%60} 分` : `${min} 分鐘`; }
+function parseCoords(t){ t = String(t || "");
+  const m = t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || t.match(/[?&](?:q|ll|query|destination)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/) || t.match(/^\s*(-?\d{1,2}\.\d+)\s*[, ]\s*(-?\d{2,3}\.\d+)\s*$/);
+  return m ? { lat: +m[1], lng: +m[2] } : null; }
+
+/* 折線取樣:每 step 公里一個點 */
+function resample(pts, stepKm){
+  const out = [pts[0]]; let carry = 0;
+  for(let i = 1; i < pts.length; i++){
+    let a = pts[i-1]; const b = pts[i]; let seg = km(a, b);
+    while(carry + seg >= stepKm && seg > 0){
+      const r = (stepKm - carry) / seg; a = { lat: a.lat + (b.lat - a.lat) * r, lng: a.lng + (b.lng - a.lng) * r };
+      out.push(a); seg = km(a, b); carry = 0;
+    }
+    carry += seg;
+  }
+  return out;
+}
+function segDistKm(p, a, b, o){
+  const [px, py] = toXY(p, o), [ax, ay] = toXY(a, o), [bx, by] = toXY(b, o);
+  const dx = bx - ax, dy = by - ay, L = dx*dx + dy*dy;
+  const t = L ? clamp(((px-ax)*dx + (py-ay)*dy) / L, 0, 1) : 0;
+  return Math.hypot(px - ax - t*dx, py - ay - t*dy);
+}
+
+/* Google 編碼折線(分享連結用) */
+function encPoly(pts){ let out = "", plat = 0, plng = 0;
+  const enc = v => { v = v < 0 ? ~(v << 1) : v << 1; let s = ""; while(v >= 0x20){ s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; } return s + String.fromCharCode(v + 63); };
+  for(const p of pts){ const la = Math.round(p.lat * 1e5), ln = Math.round(p.lng * 1e5); out += enc(la - plat) + enc(ln - plng); plat = la; plng = ln; }
+  return out; }
+function decPoly(s){ const pts = []; let i = 0, lat = 0, lng = 0;
+  const dec = () => { let r = 0, sh = 0, b; do { b = s.charCodeAt(i++) - 63; r |= (b & 0x1f) << sh; sh += 5; } while(b >= 0x20); return (r & 1) ? ~(r >> 1) : (r >> 1); };
+  while(i < s.length){ lat += dec(); lng += dec(); pts.push({ lat: lat / 1e5, lng: lng / 1e5 }); }
+  return pts; }
+
+/* ================= 營業時間(OSM opening_hours 常見格式) ================= */
+const DAYS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+function openAt(oh, date){
+  if(!oh) return null;
+  oh = String(oh).trim();
+  if(oh === "24/7") return true;
+  const dow = date.getDay(), mins = date.getHours() * 60 + date.getMinutes();
+  const prevDow = (dow + 6) % 7;
+  let result = null;
+  for(let rule of oh.split(/\s*;\s*/)){
+    rule = rule.replace(/\bPH\b[^,]*,?/g, "").trim(); if(!rule) continue;
+    let m = rule.match(/^((?:(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?,?)+)\s+(.*)$/);
+    let days, times;
+    if(m){ days = m[1]; times = m[2]; } else if(/^\d/.test(rule) || /^off$/i.test(rule)){ days = "Mo-Su"; times = rule; } else return null;
+    const set = new Set();
+    for(const part of days.split(",").filter(Boolean)){
+      const [a, b] = part.split("-"); const ia = DAYS.indexOf(a), ib = b ? DAYS.indexOf(b) : ia; if(ia < 0 || ib < 0) return null;
+      for(let k = ia; ; k = (k + 1) % 7){ set.add(k); if(k === ib) break; }
+    }
+    const inToday = set.has(dow), inPrev = set.has(prevDow);
+    if(!inToday && !inPrev) continue;
+    if(/^off|closed$/i.test(times.trim())){ if(inToday) result = false; continue; }
+    let open = false, parsed = false;
+    for(const tr of times.split(",")){
+      const t = tr.trim().match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\+?$/); if(!t) continue; parsed = true;
+      const s = +t[1] * 60 + +t[2]; let e = +t[3] * 60 + +t[4]; if(e <= s) e += 1440;
+      if(inToday && mins >= s && mins < e) open = true;
+      if(inPrev && e > 1440 && mins + 1440 >= s && mins + 1440 < e) open = true;
+    }
+    if(!parsed) return null;
+    if(inToday) result = open;          // 後面的規則覆蓋前面的(OSM 的規則)
+    else if(open) result = true;        // 前一天營業到凌晨
+  }
+  return result;
+}
+
+/* ================= 外部服務(全部免費、不需要 key) ================= */
+async function fetchJson(url, opts = {}, tries = 2){
+  let last;
+  for(let i = 0; i < tries; i++){
+    try{ const r = await fetch(url, opts); if(r.status === 429){ await sleep(1500 * (i + 1)); continue; } if(!r.ok) throw new Error("HTTP " + r.status); return await r.json(); }
+    catch(e){ last = e; await sleep(600 * (i + 1)); }
+  }
+  throw last || new Error("network");
+}
+let lastNomi = 0;
+async function geocode(text, city){
+  const direct = parseCoords(text); if(direct) return { ...direct, name: text.length < 40 ? text : "指定位置" };
+  const q = city && !String(text).includes(city) ? `${text} ${city}` : text;
+  const cache = store.get("geo", {}); if(cache[q]) return cache[q];
+  const wait = 1100 - (Date.now() - lastNomi); if(wait > 0) await sleep(wait); lastNomi = Date.now();
+  let arr = await fetchJson(`${CONFIG.nominatim}?format=jsonv2&limit=1&accept-language=zh-TW&q=${encodeURIComponent(q)}`);
+  if(!arr.length && q !== text){ await sleep(1100); lastNomi = Date.now(); arr = await fetchJson(`${CONFIG.nominatim}?format=jsonv2&limit=1&accept-language=zh-TW&q=${encodeURIComponent(text)}`); }
+  if(!arr.length) throw new Error(`找不到「${text}」,換個說法(例如捷運站名)或貼 Google 地圖連結。`);
+  const r = { lat: +arr[0].lat, lng: +arr[0].lon, name: String(arr[0].name || text).slice(0, 40) };
+  cache[q] = r; const keys = Object.keys(cache); if(keys.length > 200) delete cache[keys[0]]; store.set("geo", cache);
+  return r;
+}
+async function overpass(q){
+  let last;
+  for(const url of CONFIG.overpass){
+    try{ return await fetchJson(url, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } }, 1); }
+    catch(e){ last = e; }
+  }
+  throw last;
+}
+let lastOsrm = 0;
+async function route(pts){
+  const wait = 350 - (Date.now() - lastOsrm); if(wait > 0) await sleep(wait); lastOsrm = Date.now();
+  const coords = pts.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
+  const j = await fetchJson(`${CONFIG.osrm}${coords}?overview=full&geometries=geojson&continue_straight=false`);
+  if(j.code !== "Ok" || !j.routes || !j.routes[0]) throw new Error("route");
+  const line = [];
+  for(const [lng, lat] of j.routes[0].geometry.coordinates){ const l = line[line.length - 1]; if(!l || l.lat !== lat || l.lng !== lng) line.push({ lat, lng }); }
+  return { pts: line, km: j.routes[0].distance / 1000 };
+}
+
+/* ================= 周邊資料 ================= */
+async function loadArea(c, radiusM){
+  const a = `(around:${Math.round(radiusM)},${c.lat.toFixed(5)},${c.lng.toFixed(5)})`;
+  const q = `[out:json][timeout:25];
+way${a}[leisure=track];out geom 15;
+way${a}[leisure=park][name];out geom 40;
+node${a}[amenity~"^(cafe|restaurant|fast_food|ice_cream)$"];out 500;
+node${a}[shop~"^(bakery|coffee)$"];out 80;
+node${a}[amenity~"^(toilets|drinking_water)$"];out 200;
+node${a}[railway=station];out 80;
+node${a}[station=subway];out 80;
+way${a}[highway~"^(motorway|trunk|primary|secondary)$"];out geom 500;
+way${a}[highway~"^(cycleway|footway|path|pedestrian|living_street)$"][name];out center 150;`;
+  const j = await overpass(q);
+  const A = { tracks: [], parks: [], cafes: [], food: [], toilets: [], water: [], stations: [], roads: [], paths: [] };
+  const seenSt = new Set();
+  for(const e of j.elements || []){
+    const t = e.tags || {};
+    const p = e.lat != null ? { lat: e.lat, lng: e.lon } : e.center ? { lat: e.center.lat, lng: e.center.lon } : null;
+    if(e.type === "way" && e.geometry){
+      const g = e.geometry.map(x => ({ lat: x.lat, lng: x.lon }));
+      if(t.leisure === "track") A.tracks.push({ name: t.name || "跑道", geom: g, c: centroid(g), lap: pathKm(g) });
+      else if(t.leisure === "park") A.parks.push({ name: t.name, geom: g, c: centroid(g), perim: pathKm(g) });
+      else if(/^(motorway|trunk|primary|secondary)$/.test(t.highway)) A.roads.push(g);
+      continue;
+    }
+    if(!p) continue;
+    const name = t["name:zh"] || t.name || "";
+    if(t.amenity === "cafe" || t.shop === "coffee" || t.shop === "bakery") A.cafes.push({ ...p, name: name || "咖啡廳", oh: t.opening_hours, kind: t.amenity || t.shop });
+    else if(/^(restaurant|fast_food|ice_cream)$/.test(t.amenity)) A.food.push({ ...p, name: name || "餐廳", oh: t.opening_hours, cuisine: t.cuisine || "" });
+    else if(t.amenity === "toilets") A.toilets.push(p);
+    else if(t.amenity === "drinking_water") A.water.push(p);
+    else if(t.railway === "station" || t.station === "subway"){ const k = name + p.lat.toFixed(3); if(!seenSt.has(k) && name){ seenSt.add(k); A.stations.push({ ...p, name }); } }
+    else if(t.highway) A.paths.push({ ...p, name, kind: t.highway });
+  }
+  // 大馬路切成小段建索引
+  A.roadSegs = [];
+  for(const g of A.roads) for(let i = 1; i < g.length; i++) A.roadSegs.push([g[i-1], g[i]]);
+  return A;
+}
+function nearRoad(p, A, o){ for(const [a, b] of A.roadSegs){ if(Math.abs(a.lat - p.lat) > .002 && Math.abs(b.lat - p.lat) > .002) continue; if(segDistKm(p, a, b, o) < 0.025) return true; } return false; }
+
+/* ================= 圖案 ================= */
+function shapePts(kind){
+  const pts = [];
+  if(kind === "heart"){ for(let i = 0; i < 18; i++){ const t = (i / 18) * 2 * Math.PI; pts.push([16 * Math.sin(t) ** 3 / 17, (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 17]); } }
+  else if(kind === "star"){ for(let i = 0; i < 10; i++){ const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.42 : 1; pts.push([r * Math.cos(a), r * Math.sin(a)]); } }
+  else if(kind === "square"){ pts.push([-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]); }
+  else { for(let i = 0; i < 14; i++){ const a = i / 14 * 2 * Math.PI; pts.push([Math.cos(a), Math.sin(a)]); } }
+  return pts;
+}
+const SHAPE_NAME = { heart: "愛心", star: "星星", circle: "圓圈", square: "方塊" };
+function placeShape(kind, c, targetKm){
+  const u = shapePts(kind); const closed = u.concat([u[0]]);
+  let per = 0; for(let i = 1; i < closed.length; i++) per += Math.hypot(closed[i][0] - closed[i-1][0], closed[i][1] - closed[i-1][1]);
+  const s = (targetKm / 1.28) / per;
+  return u.map(([x, y]) => fromXY(x * s, y * s, c));
+}
+
+/* ================= 規劃 ================= */
+const PURPOSES = [["interval","⚡ 間歇跑"],["art","🎨 跑圖案"],["coffee","☕ 跑完喝咖啡"],["food","🍜 跑完吃東西"],["easy","🌿 輕鬆聊天跑"],["long","🏁 長距離"]];
+const SHAPES = [["heart","❤️ 愛心"],["star","⭐ 星星"],["circle","⭕ 圓圈"],["square","⬛ 方塊"]];
+const MOODS = [["ok","🙂 普通",0],["tired","😴 有點累",20],["great","🔥 很好",-10],["sore","🤕 不太舒服",30]];
+
+function trafficLevel(pct){ return pct < 0.12 ? ["低","lvl-low"] : pct < 0.28 ? ["中","lvl-mid"] : ["高","lvl-high"]; }
+
+function evaluate(c, A, o, when){
+  const s = resample(c.pts, 0.05);
+  let near = 0; for(const p of s) if(nearRoad(p, A, o)) near++;
+  c.traffic = s.length ? near / s.length : 0;
+  const cnt = (list, d) => list.filter(q => s.some(p => Math.abs(p.lat - q.lat) < .003 && km(p, q) < d)).length;
+  c.toilets = cnt(A.toilets, 0.15); c.water = cnt(A.water, 0.15);
+  c.km = c.km || pathKm(c.pts);
+  if(c.shape){
+    const shp = c.shape.concat([c.shape[0]]); let dev = 0;
+    for(const p of s){ let best = 1e9; for(let i = 1; i < shp.length; i++) best = Math.min(best, segDistKm(p, shp[i-1], shp[i], o)); dev += best; }
+    const size = Math.max(...c.shape.map(p => km(p, centroid(c.shape)))) || 1;
+    c.fidelity = clamp(1 - (dev / s.length) / (size * 0.35), 0, 1);
+  }
+}
+
+function placesNear(list, p, d, when){
+  return list.map(q => ({ ...q, d: km(p, q), open: openAt(q.oh, when) })).filter(q => q.d <= d)
+    .sort((a, b) => (b.open === true) - (a.open === true) || (a.open === false) - (b.open === false) || a.d - b.d);
+}
+function bestEndClusters(list, when, n){
+  const scored = list.map(p => { let sc = 0;
+    for(const q of list){ if(Math.abs(q.lat - p.lat) > .004) continue; if(km(p, q) < 0.3){ const o = openAt(q.oh, when); sc += o === true ? 1 : o === null ? 0.35 : 0; } }
+    return { p, sc }; }).sort((a, b) => b.sc - a.sc);
+  const out = [];
+  for(const s of scored){ if(out.length >= n) break; if(out.every(x => km(x.p, s.p) > 0.6)) out.push(s); }
+  return out;
+}
+function pickVia(from, to, budget, A, o, avoid = []){
+  const opts = A.parks.concat(A.tracks.map(t => ({ name: t.name, c: t.c }))).map(pk => ({ name: pk.name, p: pk.c }));
+  let best = null;
+  for(const v of opts){
+    if(avoid.some(a => km(a, v.p) < 0.4)) continue;
+    const d = km(from, v.p) + km(v.p, to); const err = Math.abs(d - budget);
+    if(!best || err < best.err) best = { ...v, err };
+  }
+  if(best && best.err < budget * 0.35) return best;
+  // 沒有合適的公園:在兩點中垂線上找一個點
+  const [fx, fy] = toXY(from, o), [tx, ty] = toXY(to, o);
+  const mx = (fx + tx) / 2, my = (fy + ty) / 2, half = Math.hypot(tx - fx, ty - fy) / 2;
+  const h = Math.sqrt(Math.max(0, (budget / 2) ** 2 - half ** 2));
+  let nx = -(ty - fy), ny = tx - fx; const L = Math.hypot(nx, ny) || 1; nx /= L; ny /= L;
+  if(!half){ nx = 0; ny = 1; }
+  return { name: "", p: fromXY(mx + nx * h, my + ny * h, o) };
+}
+function intervalPlan(totalKm, lapKm){
+  const warm = totalKm >= 8 ? 2 : 1.5, cool = totalKm >= 8 ? 1.5 : 1;
+  const main = Math.max(1.6, totalKm - warm - cool);
+  const rep = main <= 3 ? 0.4 : main <= 5.5 ? 0.8 : 1;
+  const n = Math.max(3, Math.round(main / rep));
+  const rest = rep <= 0.4 ? "60–90 秒" : rep <= 0.8 ? "90 秒" : "2 分鐘";
+  const laps = lapKm ? Math.round(rep / lapKm * 10) / 10 : null;
+  return { warm, cool, rep, n, rest, laps };
+}
+
+async function plan(input, onStep){
+  const when = new Date(input.when || Date.now());
+  onStep("找大家的出發地…");
+  const people = [];
+  for(const p of input.people){ if(!p.from.trim()) continue; people.push({ ...p, ll: await geocode(p.from, input.city) }); }
+  let dest = null;
+  if(input.dest.trim()){ onStep("找想跑的地區…"); dest = await geocode(input.dest, input.city); }
+  if(!people.length && !dest) throw new Error("至少填一個人的出發地,或想跑的地區。");
+  const mid = dest || centroid(people.map(p => p.ll));
+  const target = clamp(+input.km || 6, 2, 42);
+  const radius = clamp(target * 450 + 1200, 2000, 9000);
+  onStep("看看附近有什麼:公園、跑道、店家、大馬路…");
+  const A = await loadArea(mid, radius);
+  const o = mid;
+
+  // 集合點:想跑的地區 > 中間點附近的捷運站 > 中間點
+  let meet;
+  const nearSt = A.stations.slice().sort((a, b) => km(a, mid) - km(b, mid))[0];
+  if(dest) meet = { ...dest, name: dest.name };
+  else if(nearSt && km(nearSt, mid) < 1.5) meet = { lat: nearSt.lat, lng: nearSt.lng, name: nearSt.name + "站" };
+  else meet = { ...mid, name: "大家的中間點" };
+  if(input.purpose === "interval" && !dest){
+    const t = A.tracks.slice().sort((a, b) => km(a.c, mid) - km(b.c, mid))[0];
+    if(t && km(t.c, mid) < 2.5) meet = { ...t.c, name: t.name };
+  }
+
+  const cands = [];
+  const P = input.purpose;
+  onStep("排路線中…");
+  if(P === "interval"){
+    const tracks = A.tracks.filter(t => t.lap > 0.2 && t.lap < 0.6).sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 2);
+    for(const t of tracks){
+      const ip = intervalPlan(target, t.lap);
+      const loop = t.geom.concat([t.geom[0]]);
+      cands.push({ kind: "track", title: t.name, sub: `${Math.round(t.lap * 1000)} m 跑道`, pts: loop, km: target, isTrack: true, ip, lapKm: t.lap, meet: t.c, end: t.c });
+    }
+    const parks = A.parks.filter(p => p.perim > 0.8 && p.perim < 3.5).sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 2);
+    for(const pk of parks){
+      try{ const r = await route(pk.geom.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 10)) === 0).concat([pk.geom[0]]));
+        cands.push({ kind: "park", title: pk.name, sub: `公園一圈 ${r.km.toFixed(1)} km`, pts: r.pts, km: r.km, ip: intervalPlan(target, null), loopKm: r.km, meet: r.pts[0], end: r.pts[0] }); }
+      catch(e){}
+      if(cands.length >= 3) break;
+    }
+  } else if(P === "art"){
+    const kinds = input.shape && input.shape !== "auto" ? [input.shape] : ["heart", "star"];
+    const centers = [];
+    for(const c of [{ name: meet.name, p: meet }].concat(A.parks.slice().sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 4).map(pk => ({ name: pk.name, p: pk.c }))))
+      if(centers.length < 3 && centers.every(x => km(x.p, c.p) > 0.5 && x.name !== c.name)) centers.push(c);
+    let tries = 0;
+    for(const k of kinds) for(const c of centers){
+      if(tries++ >= 4) break;
+      const shape = placeShape(k, c.p, target);
+      try{ const r = await route(shape.concat([shape[0]]));
+        if(r.km > target * 2.2) continue;
+        cands.push({ kind: "art", title: `${SHAPE_NAME[k]} · ${c.name}`, sub: SHAPE_NAME[k], pts: r.pts, km: r.km, shape, shapeKind: k, meet: r.pts[0], end: r.pts[r.pts.length - 1] }); }
+      catch(e){}
+    }
+  } else if(P === "coffee" || P === "food"){
+    const list = P === "coffee" ? A.cafes : A.food;
+    const ends = bestEndClusters(list, when, 3);
+    for(const e of ends){
+      const end = e.p;
+      const budget = target / 1.25;
+      try{
+        let r;
+        if(km(meet, end) >= budget * 0.85) r = await route([meet, end]);
+        else { const v = pickVia(meet, end, budget, A, o); r = await route([meet, v.p, end]); r.via = v.name; }
+        const near = placesNear(list, end, 0.35, when).slice(0, 6);
+        const area = near.find(x => x.name && !/^(咖啡廳|餐廳)$/.test(x.name));
+        cands.push({ kind: P, title: `終點:${area ? area.name + " 一帶" : end.name}`, sub: r.via ? `經過 ${r.via}` : "直達", pts: r.pts, km: r.km, places: near, meet, end: r.pts[r.pts.length - 1], via: r.via });
+      }catch(e){}
+    }
+  }
+  if(!cands.length || P === "easy" || P === "long"){
+    if(cands.length === 0 && P !== "easy" && P !== "long") onStep("這一帶比較少相關地點,改排繞圈路線…");
+    await loops(cands, meet, target, A, o, P);
+  }
+  if(!cands.length) throw new Error("這一帶找不到合適的路線。試試換個地區、改公里數,或換個目的。");
+  onStep("評估車流、廁所、店家…");
+  for(const c of cands) if(!c.isTrack) evaluate(c, A, o, when); else { c.traffic = 0; c.toilets = A.toilets.filter(t => km(t, c.meet) < 0.3).length; c.water = A.water.filter(t => km(t, c.meet) < 0.3).length; }
+
+  // 分數
+  for(const c of cands){
+    let sc = 100 - Math.abs(c.km - target) / target * 60 - c.traffic * 80 + Math.min(c.toilets, 2) * 4 + Math.min(c.water, 2) * 2;
+    if(c.fidelity != null) sc += c.fidelity * 40;
+    if(c.places) sc += Math.min(c.places.filter(x => x.open === true).length, 5) * 5;
+    if(c.isTrack) sc += 25 - km(c.meet, mid) * 6;
+    c.score = sc;
+  }
+  cands.sort((a, b) => b.score - a.score);
+  const top = cands.slice(0, 3);
+  // 每個人到集合點
+  for(const c of top){
+    c.people = people.map(p => ({ name: p.name, d: km(p.ll, c.meet || meet) }));
+    c.reasons = reasons(c, input, A, when, target, people);
+  }
+  return { meet, people: people.map(p => ({ name: p.name, ll: { lat: p.ll.lat, lng: p.ll.lng }, pace: p.pace, mood: p.mood })), cands: top, when: when.getTime(), purpose: P, target };
+}
+
+/* 從集合點出發,經過 1–2 個公園或河濱,繞一圈回來 */
+async function loops(cands, meet, target, A, o, P){
+  const budget = target / 1.22;
+  const used = [];
+  for(let k = 0; k < 3 && cands.length < 3; k++){
+    try{
+      const v1 = pickVia(meet, meet, budget * 0.66, A, o, used);
+      used.push(v1.p);
+      const v2 = pickVia(v1.p, meet, budget * 0.5, A, o, used);
+      used.push(v2.p);
+      const r = await route([meet, v1.p, v2.p, meet]);
+      if(cands.some(c => Math.abs(c.km - r.km) < 0.3)) continue;
+      cands.push({ kind: P === "long" ? "long" : "easy", title: [v1.name, v2.name].filter(Boolean).join(" → ") || "附近繞一圈", sub: "繞一圈回到集合點", pts: r.pts, km: r.km, meet, end: meet });
+    }catch(e){}
+  }
+}
+
+function groupPace(people){
+  const ps = people.filter(p => p.pace).map(p => p.pace + ((MOODS.find(m => m[0] === p.mood) || [0,0,0])[2]));
+  return ps.length ? Math.max(...ps) : null;
+}
+
+function reasons(c, input, A, when, target, people){
+  const r = [];
+  const hh = `${when.getHours()}:${String(when.getMinutes()).padStart(2, "0")}`;
+  if(c.isTrack){
+    r.push(`${c.title} 是標準跑道,一圈約 ${Math.round(c.lapKm * 1000)} m,間歇最好算距離,也不用閃車。`);
+  } else if(c.kind === "park" && input.purpose === "interval"){
+    r.push(`繞 ${c.title} 一圈 ${c.loopKm.toFixed(1)} km,不用過馬路,適合「快跑一段、慢跑一段」。`);
+  }
+  if(c.fidelity != null) r.push(`照著路網跑,${SHAPE_NAME[c.shapeKind]}的還原度約 ${Math.round(c.fidelity * 100)}%${c.fidelity < 0.6 ? ",形狀會有點歪,可以試試換地方" : ""}。`);
+  if(!c.isTrack){
+    const [lv] = trafficLevel(c.traffic);
+    r.push(`約 ${Math.round(c.traffic * 100)}% 的路段貼著大馬路(車多程度:${lv})${c.traffic < 0.12 ? ",大多是巷弄、公園或河濱" : ",過馬路時要多注意"}。`);
+  }
+  if(c.places){
+    const open = c.places.filter(x => x.open === true).length, unk = c.places.filter(x => x.open == null).length;
+    r.push(`終點附近 350 m 有 ${c.places.length} 家${c.kind === "coffee" ? "咖啡廳" : "吃的"},${hh} 確定有開的 ${open} 家${unk ? `,另外 ${unk} 家沒有營業時間資料` : ""}。`);
+  }
+  const fac = [];
+  if(c.toilets) fac.push(`${c.toilets} 個廁所`); if(c.water) fac.push(`${c.water} 個飲水機`);
+  if(fac.length) r.push(`路線旁有 ${fac.join("、")}。`);
+  if(Math.abs(c.km - target) / target > 0.2 && !c.isTrack) r.push(`這條是 ${c.km.toFixed(1)} km,跟你想跑的 ${target} km 有點差距,可以多繞或少繞一段。`);
+  if(people.length > 1){
+    const ds = people.map(p => km(p.ll, c.meet || p.ll)); const mx = Math.max(...ds), mn = Math.min(...ds);
+    r.push(`大家到集合點的直線距離 ${mn.toFixed(1)}–${mx.toFixed(1)} km${mx - mn < 2 ? ",還算公平" : ""}。`);
+  }
+  return r;
+}
+
+/* ================= 可選 AI(OpenAI 相容 API,省 token) ================= */
+function aiConf(){ const s = store.get("ai", {}); return { url: s.url || CONFIG.ai.url, model: s.model || CONFIG.ai.model, key: s.key || CONFIG.ai.key }; }
+const aiOn = () => { const a = aiConf(); return !!(a.url && a.model); };
+async function aiChat(prompt, maxTokens = 300){
+  const a = aiConf();
+  const r = await fetch(a.url, { method: "POST", headers: { "Content-Type": "application/json", ...(a.key ? { Authorization: "Bearer " + a.key } : {}) },
+    body: JSON.stringify({ model: a.model, max_tokens: maxTokens, temperature: 0.3, messages: [{ role: "user", content: prompt }] }) });
+  if(!r.ok) throw new Error("AI " + r.status);
+  const j = await r.json(); return String(j.choices?.[0]?.message?.content || "");
+}
+/* 沒有 AI 時的關鍵字解析 */
+function parseAskLocal(t){
+  const o = {};
+  if(/間歇|interval|操場|跑道|配速課/i.test(t)) o.purpose = "interval";
+  else if(/愛心|心型|heart|星星|star|圓|方塊|圖案|跑圖|gps ?art/i.test(t)) o.purpose = "art";
+  else if(/咖啡|coffee|cafe|早午餐|甜點|麵包/i.test(t)) o.purpose = "coffee";
+  else if(/吃|拉麵|晚餐|宵夜|美食|小吃|火鍋|燒肉|food|dinner/i.test(t)) o.purpose = "food";
+  else if(/長距|LSD|半馬|全馬|long/i.test(t)) o.purpose = "long";
+  else if(/輕鬆|聊天|慢跑|easy/i.test(t)) o.purpose = "easy";
+  if(/愛心|心型|heart/i.test(t)) o.shape = "heart"; else if(/星/i.test(t)) o.shape = "star"; else if(/圓/.test(t)) o.shape = "circle"; else if(/方塊|方形/.test(t)) o.shape = "square";
+  const k = t.match(/(\d+(?:\.\d+)?)\s*(?:k|K|公里|km)/); if(k) o.km = +k[1];
+  const d = t.match(/(?:在|到|去)([\u4e00-\u9fffA-Za-z0-9]{2,12}?)(?:附近|一帶|周邊|跑|集合|$)/); if(d && !/哪/.test(d[1])) o.dest = d[1];
+  const now = new Date(), wd = "日一二三四五六";
+  const w = t.match(/(?:週|星期|禮拜)([一二三四五六日天])/);
+  let day = null; if(w){ const target = wd.indexOf(w[1] === "天" ? "日" : w[1]); day = new Date(now); day.setDate(now.getDate() + ((target - now.getDay() + 7) % 7 || 7)); }
+  else if(/明天/.test(t)){ day = new Date(now); day.setDate(now.getDate() + 1); } else if(/今天|今晚/.test(t)) day = new Date(now);
+  let hh = null; const tm = t.match(/(\d{1,2})[:點](\d{2})?/); if(tm) hh = [+tm[1], +(tm[2] || 0)];
+  if(/下班|晚上|夜跑|今晚/.test(t) && (!hh || hh[0] < 12)) hh = hh ? [hh[0] + 12, hh[1]] : [19, 30];
+  if(/早上|晨跑/.test(t) && !hh) hh = [6, 30];
+  if(day || hh){ const d2 = day || new Date(now); const [h, m] = hh || [19, 30]; d2.setHours(h, m, 0, 0); o.when = toLocalInput(d2); }
+  return o;
+}
+async function parseAsk(t){
+  const local = parseAskLocal(t);
+  if(!aiOn()) return { ...local, by: "local" };
+  try{
+    const now = new Date();
+    const txt = await aiChat(`今天是 ${toLocalInput(now)}(${"日一二三四五六"[now.getDay()]})。把這句跑步邀約轉成 JSON,只回 JSON:
+{"purpose":"interval|art|coffee|food|easy|long","shape":"heart|star|circle|square|null","km":數字或null,"dest":"地名或null","when":"YYYY-MM-DDTHH:MM 或 null"}
+句子:${t}`, 120);
+    const m = txt.match(/\{[\s\S]*\}/); const j = m ? JSON.parse(m[0]) : {};
+    const o = { ...local };
+    if(PURPOSES.some(p => p[0] === j.purpose)) o.purpose = j.purpose;
+    if(SHAPES.some(s => s[0] === j.shape)) o.shape = j.shape;
+    if(+j.km > 1 && +j.km < 50) o.km = +j.km;
+    if(j.dest && j.dest !== "null") o.dest = String(j.dest).slice(0, 30);
+    if(j.when && /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(j.when)) o.when = j.when;
+    return { ...o, by: "ai" };
+  }catch(e){ return { ...local, by: "local" }; }
+}
+async function aiSummary(c, input){
+  if(!aiOn()) return null;
+  try{
+    return (await aiChat(`用繁體中文、口語、兩句話介紹這條跑步路線給朋友群組,不要誇大:目的 ${pLabel(input.purpose)},${c.title},${c.km.toFixed(1)} km。重點:${c.reasons.slice(0, 3).join(" ")}`, 160)).trim().slice(0, 300);
+  }catch(e){ return null; }
+}
+
+/* ================= 狀態 / 輸入 ================= */
+const pLabel = k => (PURPOSES.find(p => p[0] === k) || [k, k])[1];
+function toLocalInput(d){ return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+const S = store.get("input", null) || {
+  mode: "train", purpose: "coffee", shape: "heart", km: 6, dest: "", city: "台北",
+  when: (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(19, 30, 0, 0); return toLocalInput(d); })(),
+  people: [{ name: "我", from: "", pace: "", mood: "ok" }, { name: "", from: "", pace: "", mood: "ok" }]
+};
+let RESULT = null, SEL = 0, SHARED = false;
+
+function save(){ store.set("input", S); }
+function renderInputs(){
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === S.mode)));
+  $("#purposes").innerHTML = PURPOSES.map(([k, l]) => `<button type="button" class="chip" data-purpose="${k}" aria-pressed="${S.purpose === k}">${l}</button>`).join("");
+  $("#shapes").innerHTML = SHAPES.map(([k, l]) => `<button type="button" class="chip" data-shape="${k}" aria-pressed="${S.shape === k}">${l}</button>`).join("");
+  $("#shapeField").hidden = S.purpose !== "art";
+  $("#when").value = S.when; $("#km").value = S.km; $("#dest").value = S.dest; $("#city").value = S.city;
+  const pace = S.mode === "pace";
+  $("#people").innerHTML = S.people.map((p, i) => `<div class="person">
+      <div class="no" style="color:${COLORS[i % COLORS.length]}">${i + 1}</div>
+      <div><div class="f"><input type="text" data-p="${i}" data-k="name" value="${esc(p.name)}" placeholder="名字" aria-label="名字">
+        <input type="text" data-p="${i}" data-k="from" value="${esc(p.from)}" placeholder="從哪裡出發(公司、捷運站)" aria-label="出發地"></div>
+        ${pace ? `<div class="f2"><input type="text" data-p="${i}" data-k="pace" value="${esc(p.pace)}" placeholder="配速 6:30" aria-label="配速">
+          <select data-p="${i}" data-k="mood" aria-label="今天狀態">${MOODS.map(([k, l]) => `<option value="${k}" ${p.mood === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>` : ""}</div>
+      <button class="x" type="button" data-rm="${i}" aria-label="移除">×</button></div>`).join("");
+}
+document.addEventListener("input", e => {
+  const t = e.target;
+  if(t.dataset.p != null){ S.people[+t.dataset.p][t.dataset.k] = t.value; save(); return; }
+  if(["when", "km", "dest", "city"].includes(t.id)){ S[t.id] = t.id === "km" ? +t.value : t.value; save(); }
+});
+document.addEventListener("change", e => { const t = e.target; if(t.dataset.p != null){ S.people[+t.dataset.p][t.dataset.k] = t.value; save(); } });
+document.addEventListener("click", e => {
+  const m = e.target.closest("[data-mode]"); if(m){ S.mode = m.dataset.mode; save(); renderInputs(); return; }
+  const p = e.target.closest("[data-purpose]"); if(p){ S.purpose = p.dataset.purpose; save(); renderInputs(); return; }
+  const s = e.target.closest("[data-shape]"); if(s){ S.shape = s.dataset.shape; save(); renderInputs(); return; }
+  const rm = e.target.closest("[data-rm]"); if(rm){ S.people.splice(+rm.dataset.rm, 1); if(!S.people.length) S.people.push({ name: "", from: "", pace: "", mood: "ok" }); save(); renderInputs(); return; }
+  const c = e.target.closest("[data-cand]"); if(c){ SEL = +c.dataset.cand; renderResult(); return; }
+  const a = e.target.closest("[data-act]"); if(a){ act(a.dataset.act); return; }
+  const me = e.target.closest("[data-me]"); if(me){ setDay({ me: me.dataset.me }); renderResult(); return; }
+  const mn = e.target.closest("[data-mins]"); if(mn){ setDay({ mins: +mn.dataset.mins }); renderResult(); return; }
+  const q = e.target.closest("[data-q]"); if(q){ quick(q.dataset.q); return; }
+});
+$("#addPerson").addEventListener("click", () => { if(S.people.length >= 12) return; S.people.push({ name: "", from: "", pace: "", mood: "ok" }); save(); renderInputs(); });
+$("#askBtn").addEventListener("click", async () => {
+  const t = $("#ask").value.trim(); if(!t) return;
+  $("#askBtn").disabled = true;
+  try{ const o = await parseAsk(t);
+    for(const k of ["purpose", "shape", "km", "dest", "when"]) if(o[k] != null) S[k] = o[k];
+    save(); renderInputs();
+    const got = [o.purpose && pLabel(o.purpose), o.shape && SHAPE_NAME[o.shape], o.km && o.km + " km", o.dest, o.when && o.when.replace("T", " ")].filter(Boolean);
+    $("#askHint").textContent = got.length ? `已帶入:${got.join("、")}${o.by === "ai" ? "(AI)" : ""}` : "看不太懂,請直接點下面的選項。";
+  } finally { $("#askBtn").disabled = false; }
+});
+
+/* ================= 產生 ================= */
+$("#go").addEventListener("click", async () => {
+  const people = S.people.map(p => ({ name: p.name.trim() || "跑友", from: p.from, pace: parsePace(p.pace), mood: p.mood }));
+  const input = { ...S, people };
+  $("#go").disabled = true; $("#err").hidden = true; $("#progress").hidden = false;
+  try{
+    const r = await plan(input, t => { $("#progressText").textContent = t; });
+    r.input = { mode: S.mode, purpose: S.purpose, shape: S.shape, km: S.km, when: S.when, dest: S.dest, title: titleFor(S) };
+    if(S.mode === "pace") r.groupPace = groupPace(people);
+    RESULT = r; SEL = 0; SHARED = false; document.body.classList.remove("shared"); $("#sharedBanner").hidden = true;
+    for(const c of r.cands) c.ai = null;
+    renderResult();
+    if(window.innerWidth < 900) $("#results").scrollIntoView({ behavior: "smooth" });
+    if(aiOn()){ const c = r.cands[0]; c.ai = await aiSummary(c, r.input); renderResult(); }
+  }catch(e){
+    $("#err").textContent = e && e.message && !/^HTTP|^route$|Failed to fetch|network/i.test(e.message) ? e.message : "連不到地圖服務,請檢查網路後再試一次(免費服務偶爾會塞車)。";
+    $("#err").hidden = false;
+  }finally{ $("#go").disabled = false; $("#progress").hidden = true; }
+});
+function titleFor(s){ const d = new Date(s.when); const wd = "日一二三四五六"[d.getDay()];
+  return `${isNaN(d) ? "" : `週${wd} `}${pLabel(s.purpose).replace(/^\S+\s/, "")}${s.purpose === "art" ? "·" + SHAPE_NAME[s.shape] : ""} ${s.km}K`; }
+
+/* ================= 地圖 ================= */
+let map = null, layer = null;
+function ensureMap(){
+  if(map || !window.L) return !!map;
+  map = L.map("map", { zoomControl: true, attributionControl: true }).setView([25.04, 121.54], 13);
+  L.tileLayer(CONFIG.tiles, { attribution: CONFIG.tilesAttr, subdomains: "abcd", maxZoom: 19 }).addTo(map);
+  layer = L.layerGroup().addTo(map);
+  return true;
+}
+const pinIcon = (txt, color) => window.L ? L.divIcon({ className: "", html: `<div class="pin" style="background:${color}">${esc(txt)}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) : null;
+function drawMap(r, c){
+  const box = $("#map");
+  if(!ensureMap()){ box.innerHTML = svgMap(r, c); return; }
+  layer.clearLayers();
+  const css = getComputedStyle(document.documentElement);
+  const routeColor = css.getPropertyValue("--route").trim() || "#2149D1";
+  if(c.shape) L.polygon(c.shape.map(p => [p.lat, p.lng]), { color: "#E3402A", weight: 2, dashArray: "6 6", fill: false }).addTo(layer);
+  L.polyline(c.pts.map(p => [p.lat, p.lng]), { color: "#fff", weight: 9, opacity: .9 }).addTo(layer);
+  const line = L.polyline(c.pts.map(p => [p.lat, p.lng]), { color: routeColor, weight: 5 }).addTo(layer);
+  const meet = c.meet || r.meet;
+  r.people.forEach((p, i) => { const m = L.marker([p.ll.lat, p.ll.lng], { icon: pinIcon(String(i + 1), COLORS[i % COLORS.length]) }).addTo(layer).bindTooltip(p.name);
+    L.polyline([[p.ll.lat, p.ll.lng], [meet.lat, meet.lng]], { color: COLORS[i % COLORS.length], weight: 2, dashArray: "4 6", opacity: .8 }).addTo(layer); });
+  L.marker([meet.lat, meet.lng], { icon: pinIcon("集", "#E3402A") }).addTo(layer).bindTooltip("集合 / 起點");
+  if(c.end && km(c.end, meet) > 0.08) L.marker([c.end.lat, c.end.lng], { icon: pinIcon("終", "#131613") }).addTo(layer).bindTooltip("終點");
+  (c.places || []).slice(0, 6).forEach(pl => L.circleMarker([pl.lat, pl.lng], { radius: 6, color: "#fff", weight: 2, fillColor: pl.open === true ? "#1C8547" : pl.open === false ? "#999" : "#D4890F", fillOpacity: 1 }).addTo(layer).bindTooltip(pl.name));
+  const b = line.getBounds(); r.people.forEach(p => b.extend([p.ll.lat, p.ll.lng]));
+  map.fitBounds(b, { padding: [24, 24] });
+  setTimeout(() => map.invalidateSize(), 50);
+}
+function svgMap(r, c){
+  const all = c.pts.concat(r.people.map(p => p.ll)).filter(valid);
+  const o = centroid(all), XY = all.map(p => toXY(p, o));
+  const W = 640, H = 420, P = 30;
+  const minX = Math.min(...XY.map(a => a[0])), maxX = Math.max(...XY.map(a => a[0])), minY = Math.min(...XY.map(a => a[1])), maxY = Math.max(...XY.map(a => a[1]));
+  const s = Math.min((W - 2*P) / Math.max(maxX - minX, .3), (H - 2*P) / Math.max(maxY - minY, .3));
+  const T = p => { const [x, y] = toXY(p, o); return [W/2 + (x - (minX + maxX)/2) * s, H/2 - (y - (minY + maxY)/2) * s]; };
+  const d = c.pts.map((p, i) => (i ? "L" : "M") + T(p).map(v => v.toFixed(1)).join(",")).join(" ");
+  const meet = c.meet || r.meet; const [mx, my] = T(meet);
+  let out = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"><rect width="${W}" height="${H}" fill="var(--surface-2)"/>`;
+  r.people.forEach((p, i) => { const [x, y] = T(p.ll); out += `<line x1="${x}" y1="${y}" x2="${mx}" y2="${my}" stroke="${COLORS[i % COLORS.length]}" stroke-width="2" stroke-dasharray="4 6"/>`; });
+  out += `<path d="${d}" fill="none" stroke="var(--surface)" stroke-width="9" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="var(--route)" stroke-width="5" stroke-linejoin="round"/>`;
+  r.people.forEach((p, i) => { const [x, y] = T(p.ll); out += `<circle cx="${x}" cy="${y}" r="11" fill="${COLORS[i % COLORS.length]}" stroke="#fff" stroke-width="2.5"/><text x="${x}" y="${y + 4.5}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">${i + 1}</text>`; });
+  out += `<circle cx="${mx}" cy="${my}" r="14" fill="#E3402A" stroke="#fff" stroke-width="3"/><text x="${mx}" y="${my + 5}" text-anchor="middle" font-size="13" font-weight="900" fill="#fff">集</text>`;
+  return out + `</svg>`;
+}
+
+/* ================= 結果 ================= */
+function renderResult(){
+  const r = RESULT;
+  if(!r){ $("#cands").innerHTML = ""; $("#detail").innerHTML = `<div class="banner">填好左邊,按「產生建議路線」。會給你 2–3 條路線,地圖、距離、車多不多、終點有哪些店開著,都會列在這裡。</div>`; $("#map").innerHTML = mapPlaceholder(); return; }
+  const c = r.cands[SEL] || r.cands[0];
+  $("#cands").innerHTML = r.cands.map((x, i) => `<button type="button" class="cand" data-cand="${i}" aria-pressed="${i === SEL}">
+      <span class="k">路線 ${"ABC"[i]}${i === 0 ? " · 推薦" : ""}</span><b>${esc(x.title)}</b><span>${x.isTrack ? esc(x.sub) : x.km.toFixed(1) + " km · " + esc(x.sub)}</span></button>`).join("");
+  drawMap(r, c);
+  const pace = r.groupPace || 390;
+  const dist = c.isTrack ? r.target : c.km;
+  const [lv, lvc] = trafficLevel(c.traffic || 0);
+  const ip = c.ip;
+  const regroup = r.input.mode === "pace" && !c.isTrack ? resample(c.pts, 2).slice(1, -1) : [];
+  const gUrl = gmaps(c);
+  $("#detail").innerHTML = `
+    ${c.ai ? `<div class="plan"><b>介紹</b>${esc(c.ai)}</div>` : ""}
+    <div class="stats">
+      <div class="stat"><b>${dist.toFixed(1)}<small style="font-size:15px"> km</small></b><small>${c.isTrack ? "總量(含暖身收操)" : "路線長度"}</small></div>
+      <div class="stat"><b>${fmtDur(dist * pace / 60)}</b><small>${r.groupPace ? "以團體配速 " + fmtPace(r.groupPace) : "以 6'30\"/km 估"}</small></div>
+      <div class="stat"><b class="${c.isTrack ? "lvl-low" : lvc}">${c.isTrack ? "無" : lv}</b><small>車多程度</small></div>
+      <div class="stat"><b>${(c.toilets || 0) + (c.water || 0)}</b><small>廁所 / 飲水點</small></div>
+    </div>
+    ${ip ? `<div class="plan"><b>建議課表</b>暖身慢跑 ${ip.warm} km → <b style="display:inline">${ip.n} × ${ip.rep >= 1 ? ip.rep + " km" : Math.round(ip.rep * 1000) + " m"}</b>${ip.laps ? `(每趟 ${ip.laps} 圈)` : c.loopKm ? `(繞公園)` : ""},每趟之間慢跑或走路 ${ip.rest} → 收操 ${ip.cool} km。配速不同的人照自己的強度跑,同一個地方繞,誰也不會落單。</div>` : ""}
+    ${r.input.mode === "pace" && r.groupPace ? `<div class="plan"><b>團體配速 ${fmtPace(r.groupPace)}/km</b>以最慢、加上今天狀態來算。${regroup.length ? `每 2 km 停下來等一下(共 ${regroup.length} 個等人點,地圖上看得到)。` : ""}</div>` : ""}
+    <div><div class="eyebrow" style="margin-bottom:4px">為什麼選這條</div><ul class="why">${c.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
+    ${c.places && c.places.length ? `<div><div class="eyebrow" style="margin-bottom:4px">終點附近</div><div class="places">${c.places.map(pl => `<div class="place"><span>${esc(pl.name)}${pl.cuisine ? ` <span class="hint">${esc(pl.cuisine.split(";")[0])}</span>` : ""}</span><span class="st ${pl.open === true ? "lvl-low" : pl.open === false ? "hint" : "lvl-mid"}">${pl.open === true ? "那時有開" : pl.open === false ? "那時沒開" : "時間未知"} · ${Math.round(pl.d * 1000)} m</span></div>`).join("")}</div></div>` : ""}
+    <div class="row">
+      <button class="btn primary" type="button" data-act="gpx">下載 GPX(手錶 / Strava)</button>
+      ${gUrl ? `<a class="btn dark" href="${esc(gUrl)}" target="_blank" rel="noopener">開 Google 地圖</a>` : ""}
+      <button class="btn ghost" type="button" data-act="copy">複製給群組</button>
+    </div>
+    <div class="field"><label for="shareUrl">分享連結(大家點開就看得到同一份路線,不用登入)</label>
+      <div class="share"><input type="text" id="shareUrl" readonly value=""><button class="btn dark" type="button" data-act="share">複製</button></div></div>
+    <p class="hint" style="margin:0">GPX 可以匯入 Garmin Connect、COROS、Suunto、Komoot、WorkOutDoors 等,手錶會帶路。Strava 能不能直接匯入路線,要看你的方案和版本。</p>
+    ${dayPanel(r, c)}`;
+  if(regroup.length && map) regroup.forEach((p, i) => L.marker([p.lat, p.lng], { icon: pinIcon("等", "#D4890F") }).addTo(layer).bindTooltip(`等人點 ${i + 1}(${(i + 1) * 2} km)`));
+  makeShareLink().then(u => { const el = $("#shareUrl"); if(el) el.value = u; });
+}
+function mapPlaceholder(){
+  return `<svg viewBox="0 0 640 420" preserveAspectRatio="xMidYMid slice"><rect width="640" height="420" fill="var(--surface-2)"/>
+    <g stroke="var(--line)" stroke-width="1">${Array.from({ length: 12 }, (_, i) => `<line x1="${i * 60}" y1="0" x2="${i * 60}" y2="420"/>`).join("")}${Array.from({ length: 8 }, (_, i) => `<line x1="0" y1="${i * 60}" x2="640" y2="${i * 60}"/>`).join("")}</g>
+    <path d="M320 300 C 220 230, 210 150, 270 140 C 300 135, 315 160, 320 175 C 325 160, 340 135, 370 140 C 430 150, 420 230, 320 300 Z" fill="none" stroke="var(--route)" stroke-width="6" stroke-linejoin="round" opacity=".55"/>
+    <text x="320" y="370" text-anchor="middle" font-size="15" fill="var(--muted)" font-weight="700">路線會畫在這裡</text></svg>`;
+}
+function gmaps(c){
+  const pts = c.isTrack ? [c.meet] : resample(c.pts, Math.max(0.3, c.km / 9));
+  const ok = pts.filter(valid); if(!ok.length) return null;
+  const ll = p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+  if(ok.length === 1) return `https://www.google.com/maps/search/?api=1&query=${ll(ok[0])}`;
+  const last = c.end || ok[ok.length - 1];
+  const mids = ok.slice(1, -1).slice(0, 8);
+  return `https://www.google.com/maps/dir/?api=1&origin=${ll(ok[0])}&destination=${ll(last)}${mids.length ? "&waypoints=" + encodeURIComponent(mids.map(ll).join("|")) : ""}&travelmode=walking`;
+}
+function gpxText(c, title){
+  const x = s => String(s || "").replace(/[<>&"']/g, ch => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&apos;"}[ch]));
+  const pts = c.pts; const wpts = [["集合 / 起點", c.meet || pts[0]], ["終點", c.end || pts[pts.length - 1]]].concat((c.places || []).filter(p => p.open !== false).slice(0, 3).map(p => [p.name, p]));
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Pace Together" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>${x(title)}</name></metadata>
+${wpts.filter(w => valid(w[1])).map(([n, p]) => `<wpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"><name>${x(n)}</name></wpt>`).join("\n")}
+<trk><name>${x(title)}</name><type>running</type><trkseg>
+${pts.map(p => `<trkpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"></trkpt>`).join("\n")}
+</trkseg></trk>
+</gpx>`;
+}
+function download(name, text, type){
+  const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.hidden = true; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+async function copy(text, label){
+  try{ await navigator.clipboard.writeText(text); toast(label || "已複製"); }
+  catch(e){ const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); toast(label || "已複製"); }catch(_){ toast("請手動複製"); } ta.remove(); }
+}
+async function act(a){
+  const r = RESULT; if(!r) return; const c = r.cands[SEL];
+  const title = r.input.title + " · " + c.title;
+  if(a === "gpx") download(title.replace(/[^\w\u4e00-\u9fff-]+/g, "_").slice(0, 40) + ".gpx", gpxText(c, title), "application/gpx+xml");
+  if(a === "share") copy($("#shareUrl").value, "連結已複製,貼到群組吧");
+  if(a === "copy"){
+    const d = new Date(r.when); const g = gmaps(c);
+    const txt = `🏃 ${r.input.title}\n🕖 ${d.getMonth() + 1}/${d.getDate()}(${"日一二三四五六"[d.getDay()]})${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}\n📍 集合:${(c.isTrack ? c.title : (r.meet.name || "地圖上的集合點"))}\n🗺 ${c.title}${c.isTrack ? "" : `,${c.km.toFixed(1)} km`}\n${c.ip ? `⚡ ${c.ip.n} × ${c.ip.rep >= 1 ? c.ip.rep + "km" : Math.round(c.ip.rep * 1000) + "m"}\n` : ""}${c.places && c.places[0] ? `☕ 跑完:${c.places.filter(p => p.open !== false).slice(0, 2).map(p => p.name).join("、")}\n` : ""}${g ? "Google 地圖:" + g + "\n" : ""}完整路線:${$("#shareUrl").value}`;
+    copy(txt, "已複製,貼到群組吧");
+  }
+}
+
+/* ================= 跑步當天:一鍵傳訊息到群組 ================= */
+const QUICK = {
+  before: [["arrived","已經抵達集合點",""],["late","我會晚一點到","選幾分鐘"],["cant","突然不能來了","","hot"],["startIn","我們再 __ 分鐘開始","選幾分鐘"],["warm","我先暖身,到了叫我",""]],
+  during: [["slower","請跑慢一點","","hot"],["pause","我中離一下",""],["back","我回來了",""],["waitEnd","請在終點等我","","hot"],["goAhead","你們先走,終點見",""],["chasing","我在後面追,快到了",""],["supply","我需要補給 / 喝水",""],["lost","我迷路了","附上我的位置","hot"],["hurt","我受傷了,需要幫忙","附上我的位置","hot"]],
+};
+const MINS = [5, 10, 15, 20];
+const dayKey = () => "day:" + (RESULT ? (RESULT.input.title + RESULT.when) : "");
+function dayState(){ return store.get(dayKey(), { me: "", mins: 10, start: null, end: null }); }
+function setDay(patch){ const d = { ...dayState(), ...patch }; store.set(dayKey(), d); return d; }
+function fmtClock(ms){ const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`; }
+function dayPanel(r, c){
+  const D = dayState();
+  const names = r.people.map(p => p.name).filter(Boolean);
+  const running = D.start && !D.end;
+  const btn = ([k, l, sub, hot]) => `<button type="button" data-q="${k}" class="${hot || ""}">${esc(l.replace("__", D.mins))}${sub ? `<small>${esc(sub === "選幾分鐘" ? D.mins + " 分鐘(上面可改)" : sub)}</small>` : ""}</button>`;
+  return `<div class="day stack">
+    <div><div class="eyebrow">跑步當天</div><h2>一鍵傳訊息到群組</h2>
+      <p class="hint" style="margin:4px 0 0">按一下就幫你寫好,傳到 LINE、Messenger 或 WhatsApp 群組。大家手機鎖著也會收到通知。</p></div>
+    ${names.length ? `<div class="field"><label>我是</label><div class="chips">${names.map(n => `<button type="button" class="mini" data-me="${esc(n)}" aria-pressed="${D.me === n}">${esc(n)}</button>`).join("")}</div></div>` : ""}
+    <div class="field"><label>跑前</label>
+      <div class="row" style="gap:6px"><span class="hint">分鐘:</span>${MINS.map(m => `<button type="button" class="mini" data-mins="${m}" aria-pressed="${D.mins === m}">${m}</button>`).join("")}</div>
+      <div class="qgrid">${QUICK.before.map(btn).join("")}</div></div>
+    <div class="field"><label>跑中</label>
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div class="clock" data-clock="${D.start || ""}" data-end="${D.end || ""}">${D.start ? fmtClock((D.end || Date.now()) - D.start) : "0:00"}</div>
+        ${running ? `<button class="btn primary" type="button" data-q="finish">跑完了!</button>` : `<button class="btn dark" type="button" data-q="start">${D.end ? "重新計時" : "開始計時"}</button>`}
+      </div>
+      <div class="qgrid">${QUICK.during.map(btn).join("")}</div></div>
+  </div>`;
+}
+async function myLocation(){
+  if(!navigator.geolocation) return null;
+  return new Promise(res => navigator.geolocation.getCurrentPosition(p => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null), { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }));
+}
+async function quick(k){
+  const r = RESULT; if(!r) return; const c = r.cands[SEL];
+  const D = dayState(); const me = D.me || "我";
+  const tag = `【${r.input.title}】`;
+  let msg = "";
+  if(k === "start"){ setDay({ start: Date.now(), end: null }); renderResult(); msg = "出發!開始跑了 🏃"; }
+  else if(k === "finish"){
+    const d = setDay({ end: Date.now() }); renderResult();
+    const ms = d.end - d.start, dist = c.isTrack ? r.target : c.km;
+    msg = `跑完了!${fmtClock(ms)}${dist && ms > 180000 ? `,約 ${dist.toFixed(1)} km,配速 ${fmtPace(ms / 1000 / dist)}/km` : ""} 🎉`;
+  } else {
+    const all = QUICK.before.concat(QUICK.during); const q = all.find(x => x[0] === k); if(!q) return;
+    msg = q[1].replace("__", D.mins);
+    if(k === "late") msg = `我會晚 ${D.mins} 分鐘到,先暖身等我一下`;
+    if(k === "startIn"){ const t = new Date(Date.now() + D.mins * 60000); msg = `我們再 ${D.mins} 分鐘(${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")})開始喔`; }
+    if(k === "hurt" || k === "lost"){
+      toast("取得位置中…"); const p = await myLocation();
+      msg += p ? `\n我在這:https://maps.google.com/?q=${p.lat.toFixed(6)},${p.lng.toFixed(6)}` : "\n(位置沒抓到,請直接打給我)";
+      if(k === "hurt") msg += "\n嚴重的話請幫我打 119";
+    }
+  }
+  send(`${tag}${me}:${msg}`);
+}
+async function send(text){
+  if(navigator.share && matchMedia("(pointer:coarse)").matches){
+    try{ await navigator.share({ text }); return; } catch(e){ if(e && e.name === "AbortError") return; }
+  }
+  $("#sendText").textContent = text;
+  $("#sendLine").href = "https://line.me/R/share?text=" + encodeURIComponent(text);
+  $("#sendDlg").showModal();
+}
+$("#sendCopy").addEventListener("click", () => { copy($("#sendText").textContent, "已複製,貼到群組吧"); $("#sendDlg").close(); });
+$("#sendClose").addEventListener("click", () => $("#sendDlg").close());
+$("#sendLine").addEventListener("click", () => setTimeout(() => $("#sendDlg").close(), 300));
+setInterval(() => { document.querySelectorAll("[data-clock]").forEach(el => { const s = +el.dataset.clock, e = +el.dataset.end; if(s) el.textContent = fmtClock((e || Date.now()) - s); }); }, 1000);
+
+/* ================= 分享連結(壓縮後放在網址 # 後面) ================= */
+async function packStr(str){
+  if(window.CompressionStream){
+    const cs = new Blob([str]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    const buf = new Uint8Array(await new Response(cs).arrayBuffer());
+    let bin = ""; for(const b of buf) bin += String.fromCharCode(b);
+    return "z" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  return "j" + btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function unpackStr(s){
+  const b64 = s.slice(1).replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64 + "=".repeat((4 - b64.length % 4) % 4));
+  if(s[0] === "j") return decodeURIComponent(escape(bin));
+  const buf = Uint8Array.from(bin, ch => ch.charCodeAt(0));
+  const ds = new Blob([buf]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return await new Response(ds).text();
+}
+const r5 = p => ({ lat: Math.round(p.lat * 1e5) / 1e5, lng: Math.round(p.lng * 1e5) / 1e5 });
+async function makeShareLink(){
+  const r = RESULT; if(!r) return "";
+  const thin = pts => pts.length > 400 ? pts.filter((_, i) => i % Math.ceil(pts.length / 400) === 0 || i === pts.length - 1) : pts;
+  const data = { v: 1, i: r.input, w: r.when, t: r.target, g: r.groupPace || null, m: { ...r5(r.meet), name: r.meet.name },
+    pp: r.people.map(p => ({ n: p.name, lat: Math.round(p.ll.lat * 100) / 100, lng: Math.round(p.ll.lng * 100) / 100 })),  // 出發地只留到約 1 km,保護隱私
+    c: r.cands.map(c => ({ ti: c.title, su: c.sub, k: c.kind, km: +c.km.toFixed(2), tr: c.isTrack ? 1 : 0, lap: c.lapKm || null, lk: c.loopKm || null,
+      p: encPoly(thin(c.pts)), sh: c.shape ? encPoly(c.shape) : null, sk: c.shapeKind || null, me: c.meet ? r5(c.meet) : null, en: c.end ? r5(c.end) : null,
+      tf: +(c.traffic || 0).toFixed(3), to: c.toilets || 0, wa: c.water || 0, fi: c.fidelity == null ? null : +c.fidelity.toFixed(2), ip: c.ip || null,
+      rs: c.reasons, ai: c.ai || null,
+      pl: (c.places || []).slice(0, 6).map(p => ({ n: p.name, ...r5(p), o: p.open, d: +p.d.toFixed(3), cu: p.cuisine || "" })) })) };
+  const s = await packStr(JSON.stringify(data));
+  return location.origin + location.pathname + "#r=" + s;
+}
+async function loadShared(){
+  const h = location.hash; if(!h.startsWith("#r=")) return false;
+  try{
+    const d = JSON.parse(await unpackStr(h.slice(3)));
+    RESULT = { input: d.i, when: d.w, target: d.t, groupPace: d.g, meet: d.m, people: d.pp.map(p => ({ name: p.n, ll: { lat: p.lat, lng: p.lng } })),
+      cands: d.c.map(c => ({ title: c.ti, sub: c.su, kind: c.k, km: c.km, isTrack: !!c.tr, lapKm: c.lap, loopKm: c.lk, pts: decPoly(c.p), shape: c.sh ? decPoly(c.sh) : null, shapeKind: c.sk,
+        meet: c.me, end: c.en, traffic: c.tf, toilets: c.to, water: c.wa, fidelity: c.fi, ip: c.ip, reasons: c.rs || [], ai: c.ai,
+        places: (c.pl || []).map(p => ({ name: p.n, lat: p.lat, lng: p.lng, open: p.o, d: p.d, cuisine: p.cu })) })) };
+    SHARED = true; SEL = 0; document.body.classList.add("shared");
+    const dt = new Date(d.w);
+    $("#sharedBanner").innerHTML = `朋友分享的路線:<b>${esc(d.i.title || "一起跑")}</b> · ${dt.getMonth() + 1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2, "0")}。想自己規劃,改左邊的設定再按「產生建議路線」。`;
+    $("#sharedBanner").hidden = false;
+    Object.assign(S, { mode: d.i.mode || "train", purpose: d.i.purpose, shape: d.i.shape || "heart", km: d.i.km, when: d.i.when, dest: d.i.dest || "" });
+    return true;
+  }catch(e){ console.warn(e); return false; }
+}
+
+/* ================= AI 設定視窗 ================= */
+$("#aiBtn").addEventListener("click", () => { const a = store.get("ai", {}); $("#aiUrl").value = a.url || ""; $("#aiModel").value = a.model || ""; $("#aiKey").value = a.key || ""; $("#aiDlg").showModal(); });
+$("#aiDlg").addEventListener("close", () => {
+  const v = $("#aiDlg").returnValue;
+  if(v === "save"){ store.set("ai", { url: $("#aiUrl").value.trim(), model: $("#aiModel").value.trim(), key: $("#aiKey").value.trim() }); toast(aiOn() ? "AI 已設定" : "已儲存"); }
+  if(v === "clear"){ store.set("ai", {}); toast("已清除 AI 設定"); }
+  $("#aiBtn").textContent = aiOn() ? "AI ✓" : "AI 設定";
+});
+
+/* ================= 啟動 ================= */
+(async () => {
+  await loadShared();
+  renderInputs(); renderResult();
+  $("#aiBtn").textContent = aiOn() ? "AI ✓" : "AI 設定";
+
+})();
+window.addEventListener("hashchange", async () => { if(await loadShared()){ renderInputs(); renderResult(); } });
+</script>
+</body>
+</html>
