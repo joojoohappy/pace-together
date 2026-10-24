@@ -20,9 +20,9 @@ Pace Together 讓你說「這次想練什麼」,它會依目的去評估條件,�
 
 - **長度剛好**:每條路線都會自動縮放、重新排,直到跟你要的公里數差 0.5 km 以內(最多 1 km),差太多的不會出現
 
-每條路線都會告訴你**為什麼選它**:長度差多少、貼著大馬路的比例、圖案還原度、終點那時有開的店、大家到集合點的距離。
+每條路線都會告訴你**為什麼選它**,並用「符合你的需求嗎?」列出:長度差多少、圖案還原度、車多程度、終點那時有沒有開的店,還有大家到集合點的距離。
 
-> Google 地圖的導航會自己重新算路,所以「導航到集合點」只帶你到起點;完整路線請用 GPX(手錶),或把 GPX 匯入 Google My Maps 就能看到一模一樣的路線。
+> 「在 Google 地圖看整條路線」會把起點、終點和沿路約 8 個點交給 Google,用步行模式顯示幾乎一樣的路線(Google 偶爾會選不同的小路)。要一模一樣,請用 GPX:手錶可以直接帶路,或匯入 Google My Maps。「導航到集合點」只帶你到起點。
 
 **👉 直接用:https://joojoohappy.github.io/pace-together/**
 
@@ -33,7 +33,7 @@ Pace Together 讓你說「這次想練什麼」,它會依目的去評估條件,�
 - **不用帳號**:打開網頁就能用。揪人只要丟一個分享連結,路線都存在連結裡,朋友點開就看得到。
 - **路線規劃不靠 AI**:用的是開放地圖資料與免費服務,完全不花 token:
   - 地名 → [Nominatim](https://nominatim.org)(OpenStreetMap)
-  - 公園、跑道、店家營業時間、廁所、大馬路 → [Overpass API](https://overpass-api.de)
+  - 公園、跑道、店家營業時間、大馬路 → [Overpass API](https://overpass-api.de)
   - 步行路線 → [FOSSGIS OSRM](https://routing.openstreetmap.de)(步行 profile)
   - 地圖 → [Leaflet](https://leafletjs.com) + CARTO 底圖
 - **AI 是選配**:右上角「AI 設定」可以接任何 OpenAI 相容的 API(Google Gemini、Groq、OpenRouter 免費模型,或自己電腦上的 Ollama)。只用在兩件事:把一句話轉成設定(約 150 token)、幫推薦路線寫兩句介紹(約 300 token)。Key 只存在使用者自己的瀏覽器。沒設定時,「用一句話說」會用關鍵字解析,一樣能用。
@@ -81,7 +81,6 @@ Pace Together 讓你說「這次想練什麼」,它會依目的去評估條件,�
 
 - [ ] 免費的即時同步(例如 Firebase 免費方案),讓網頁版也能「已抵達 / 請跑慢一點」
 - [ ] 河濱自行車道優先的路線
-- [ ] 更多圖案,也可以自己畫
 - [ ] 天氣與日落時間
 
 路線是自動產生的建議,出發前請確認路況與安全。歡迎開 issue 或 PR,改動請維持「單一 HTML、零營運成本」的原則。
