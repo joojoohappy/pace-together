@@ -994,16 +994,29 @@ function titleFor(s){ const d = new Date(s.when); const day = isNaN(d) ? "" : `�
   return `${day}${pLabel(s.purpose).replace(/^\S+\s/, "")}${sh ? "·" + (sh.name || "") : ""} ${s.km}K`; }
 
 /* ================= 地圖 ================= */
-let map = null, layer = null;
+let map = null, layer = null, lastDraw = null, useLeaflet = true, tileOk = 0, tileBad = 0;
 function ensureMap(){
-  if(map || !window.L) return !!map;
-  map = L.map("map", { zoomControl: true, attributionControl: true }).setView([25.04, 121.54], 13);
-  L.tileLayer(CONFIG.tiles, { attribution: CONFIG.tilesAttr, subdomains: "abcd", maxZoom: 19 }).addTo(map);
+  if(map) return true;
+  if(!window.L || !useLeaflet) return false;
+  const box = $("#map"); box.innerHTML = "";          // 清掉舊的示意圖,否則會蓋在地圖上
+  map = L.map(box, { zoomControl: true, attributionControl: true }).setView([25.04, 121.54], 13);
+  tileOk = 0; tileBad = 0;
+  const tl = L.tileLayer(CONFIG.tiles, { attribution: CONFIG.tilesAttr, subdomains: "abcd", maxZoom: 19 });
+  tl.on("tileload", () => { tileOk++; });
+  tl.on("tileerror", () => { tileBad++; if(tileBad >= 6 && tileOk === 0) giveUpLeaflet(); });
+  tl.addTo(map);
   layer = L.layerGroup().addTo(map);
   return true;
 }
+/* 街道圖磚載不到(網路或被擋)→ 改用不需要網路的示意圖,路線一定看得到 */
+function giveUpLeaflet(){
+  useLeaflet = false;
+  if(map){ map.remove(); map = null; layer = null; }
+  if(lastDraw) drawMap(lastDraw.r, lastDraw.c);
+}
 const pinIcon = (txt, color) => window.L ? L.divIcon({ className: "", html: `<div class="pin" style="background:${color}">${esc(txt)}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) : null;
 function drawMap(r, c){
+  lastDraw = { r, c };
   const box = $("#map");
   if(!ensureMap()){ box.innerHTML = svgMap(r, c); return; }
   layer.clearLayers();
@@ -1054,6 +1067,8 @@ function renderResult(){
   const isLaps = c.kind === "laps";
   const regroup = r.input.mode === "pace" && r.input.pacePurpose === "together" && !c.isTrack ? resample(c.pts, 2).slice(1, -1) : [];
   const gUrl = gmaps(c);
+  const gRoute = gmapsRoute(c);
+  const checks = fitChecks(r, c);
   const lt = isLaps ? lapTable(c, r.paces || [], r.input.minutes || 50) : [];
   const extraStat = isLaps ? `<div class="stat"><b>${lt.length ? `${lt[lt.length - 1].laps}–${lt[0].laps}` : "—"}</b><small>每人圈數</small></div>`
     : c.fidelity != null ? `<div class="stat"><b>${Math.round(c.fidelity * 100)}%</b><small>形狀還原度</small></div>`
@@ -1070,17 +1085,19 @@ function renderResult(){
     ${ip ? `<div class="plan"><b>建議課表</b>暖身慢跑 ${ip.warm} km → <b style="display:inline">${ip.n} × ${ip.rep >= 1 ? ip.rep + " km" : Math.round(ip.rep * 1000) + " m"}</b>${ip.laps ? `(每趟 ${ip.laps} 圈)` : c.loopKm ? `(繞公園)` : ""},每趟之間慢跑或走路 ${ip.rest} → 收操 ${ip.cool} km。配速不同的人照自己的強度跑,同一個地方繞,誰也不會落單。</div>` : ""}
     ${isLaps && lt.length ? `<div class="plan"><b>每個人跑幾圈(${r.input.minutes || 50} 分鐘)</b><div class="places">${lt.map(x => `<div class="place"><span>${esc(x.name)} <span class="hint">${fmtPace(x.pace)}/km</span></span><span class="st"><b>${x.laps} 圈</b> · 約 ${x.dist.toFixed(1)} km</span></div>`).join("")}</div><span class="hint">大家同時從集合點出發,時間到在集合點會合。快的人會「套圈」超過慢的人,剛好每圈打個招呼。水和外套放在集合點就好。</span></div>` : ""}
     ${r.input.mode === "pace" && r.input.pacePurpose === "together" && r.groupPace ? `<div class="plan"><b>團體配速 ${fmtPace(r.groupPace)}/km</b>以最慢的人、加上今天狀態來算,快的人陪跑當作恢復跑。${regroup.length ? `每 2 km 停下來等一下(共 ${regroup.length} 個等人點,地圖上看得到)。` : ""}</div>` : ""}
+    <div class="plan"><b>符合你的需求嗎?</b><ul class="why">${checks.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul></div>
     <div><div class="eyebrow" style="margin-bottom:4px">為什麼選這條</div><ul class="why">${c.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
     ${c.places && c.places.length ? `<div><div class="eyebrow" style="margin-bottom:4px">終點附近</div><div class="places">${c.places.map(pl => `<div class="place"><span>${esc(pl.name)}${pl.cuisine ? ` <span class="hint">${esc(pl.cuisine.split(";")[0])}</span>` : ""}</span><span class="st ${pl.open === true ? "lvl-low" : pl.open === false ? "hint" : "lvl-mid"}">${pl.open === true ? "那時有開" : pl.open === false ? "那時沒開" : "時間未知"} · ${Math.round(pl.d * 1000)} m</span></div>`).join("")}</div></div>` : ""}
     <div class="row">
       <button class="btn primary" type="button" data-act="gpx">下載 GPX(手錶 / Strava)</button>
-      ${gUrl ? `<a class="btn dark" href="${esc(gUrl)}" target="_blank" rel="noopener">導航到集合點</a>` : ""}
+      ${gRoute ? `<a class="btn dark" href="${esc(gRoute)}" target="_blank" rel="noopener">在 Google 地圖看整條路線</a>` : ""}
+      ${gUrl ? `<a class="btn" href="${esc(gUrl)}" target="_blank" rel="noopener">導航到集合點</a>` : ""}
       <button class="btn ghost" type="button" data-act="copy">複製給群組</button>
     </div>
     <div class="field"><label for="shareUrl">分享連結(大家點開就看得到同一份路線,不用登入)</label>
       <div class="share"><input type="text" id="shareUrl" readonly value=""><button class="btn dark" type="button" data-act="share">複製</button></div></div>
     <details class="hint"><summary>怎麼照著這條路線跑?</summary>
-      <p style="margin:6px 0 0">• <b>手錶</b>:下載 GPX,匯入 Garmin Connect、COROS、Suunto、Komoot 或 WorkOutDoors,手錶會帶路。<br>• <b>Google 地圖看完整路線</b>:Google 地圖的導航會自己重新算路,所以不會跟這裡一樣。要看一模一樣的路線,打開 <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener">Google My Maps</a> → 建立新地圖 → 匯入 → 選這個 GPX 檔,手機的 Google 地圖「已儲存」裡也看得到。<br>• <b>Strava</b>:能不能直接匯入路線,要看你的方案和版本。<br>「導航到集合點」按鈕只負責帶你到起點。</p></details>
+      <p style="margin:6px 0 0">• <b>手錶</b>:下載 GPX,匯入 Garmin Connect、COROS、Suunto、Komoot 或 WorkOutDoors,手錶會帶路。<br>• <b>Google 地圖</b>:「在 Google 地圖看整條路線」會把起點、終點和沿路約 8 個點交給 Google,讓它依序走走路路線,幾乎一樣。Google 偶爾會挑不同的小路,差很多就用下面的方法。<br>• <b>Google My Maps(永久一份)</b>:打開 <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener">Google My Maps</a> → 建立新地圖 → 匯入 → 選 GPX 檔,路線就是這裡畫的那條,手機的 Google 地圖「已儲存」裡也看得到。<br>• <b>Strava</b>:能不能直接匯入路線,要看你的方案和版本。</p></details>
     ${dayPanel(r, c)}`;
   if(regroup.length && map) regroup.forEach((p, i) => L.marker([p.lat, p.lng], { icon: pinIcon("等", "#D4890F") }).addTo(layer).bindTooltip(`等人點 ${i + 1}(${(i + 1) * 2} km)`));
   makeShareLink().then(u => { const el = $("#shareUrl"); if(el) el.value = u; });
@@ -1094,6 +1111,32 @@ function mapPlaceholder(){
 function gmaps(c){
   const m = c.meet || (RESULT && RESULT.meet) || c.pts[0]; if(!valid(m)) return null;
   return `https://www.google.com/maps/dir/?api=1&destination=${m.lat.toFixed(6)},${m.lng.toFixed(6)}`;
+}
+/* 整條路線的 Google 地圖連結:起點、終點加上沿路約 8 個經過點,走路模式 */
+function gmapsRoute(c){
+  const pts = (c.pts || []).filter(valid); if(pts.length < 2) return null;
+  const start = c.meet && valid(c.meet) ? c.meet : pts[0];
+  const end = c.end && valid(c.end) && km(c.end, start) > 0.08 ? c.end : start;
+  const mids = resample(pts, Math.max(0.25, pathKm(pts) / 9)).slice(1, -1).slice(0, 8);
+  const f = p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+  const wp = mids.length ? `&waypoints=${mids.map(f).join("|")}` : "";
+  return `https://www.google.com/maps/dir/?api=1&origin=${f(start)}&destination=${f(end)}${wp}&travelmode=walking`;
+}
+/* 符合需求檢查:長度、形狀、車多、終點有沒有開的店 */
+function fitChecks(r, c){
+  const out = [];
+  if(!c.isTrack && c.kind !== "laps"){
+    const d = c.km - r.target;
+    out.push(Math.abs(d) <= TOL ? ["lvl-low", `長度 ✓ 實際 ${c.km.toFixed(1)} km(目標 ${r.target} km)`]
+      : ["lvl-mid", `長度 △ 實際 ${c.km.toFixed(1)} km,跟目標差 ${Math.abs(d).toFixed(1)} km`]);
+  }
+  if(c.fidelity != null) out.push(c.fidelity >= 0.6 ? ["lvl-low", `形狀 ✓ 還原度 ${Math.round(c.fidelity * 100)}%`]
+    : ["lvl-mid", `形狀 △ 還原度 ${Math.round(c.fidelity * 100)}%,有點走樣,可以換一條或把距離加長`]);
+  const tr = c.traffic || 0;
+  out.push(tr < 0.12 ? ["lvl-low", "車多 ✓ 大多走巷弄或公園"] : tr < 0.28 ? ["lvl-mid", "車多 △ 有一段走大馬路"] : ["lvl-high", "車多 ✗ 大部分在大馬路上"]);
+  if(c.places){ const n = c.places.filter(x => x.open === true).length;
+    out.push(n ? ["lvl-low", `終點 ✓ 那時附近有 ${n} 間店開著`] : ["lvl-mid", "終點 △ 那時沒確認到開的店"]); }
+  return out;
 }
 function gpxText(c, title){
   const x = s => String(s || "").replace(/[<>&"']/g, ch => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&apos;"}[ch]));
@@ -1123,7 +1166,7 @@ async function act(a){
   if(a === "share") copy($("#shareUrl").value, "連結已複製,貼到群組吧");
   if(a === "copy"){
     const d = new Date(r.when); const g = gmaps(c);
-    const txt = `🏃 ${r.input.title}\n🕖 ${d.getMonth() + 1}/${d.getDate()}(${"日一二三四五六"[d.getDay()]})${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}\n📍 集合:${(c.isTrack ? c.title : (r.meet.name || "地圖上的集合點"))}\n🗺 ${c.title}${c.isTrack ? "" : `,${c.km.toFixed(1)} km`}\n${c.ip ? `⚡ ${c.ip.n} × ${c.ip.rep >= 1 ? c.ip.rep + "km" : Math.round(c.ip.rep * 1000) + "m"}\n` : ""}${c.kind === "laps" ? `🔁 一圈 ${c.loopKm.toFixed(2)} km,${r.input.minutes} 分鐘:` + lapTable(c, r.paces || [], r.input.minutes || 50).map(x => `${x.name} ${x.laps} 圈`).join("、") + "\n" : ""}${c.places && c.places[0] ? `☕ 跑完:${c.places.filter(p => p.open !== false).slice(0, 2).map(p => p.name).join("、")}\n` : ""}${g ? "導航到集合點:" + g + "\n" : ""}完整路線(地圖、GPX):${$("#shareUrl").value}`;
+    const txt = `🏃 ${r.input.title}\n🕖 ${d.getMonth() + 1}/${d.getDate()}(${"日一二三四五六"[d.getDay()]})${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}\n📍 集合:${(c.isTrack ? c.title : (r.meet.name || "地圖上的集合點"))}\n🗺 ${c.title}${c.isTrack ? "" : `,${c.km.toFixed(1)} km`}\n${c.ip ? `⚡ ${c.ip.n} × ${c.ip.rep >= 1 ? c.ip.rep + "km" : Math.round(c.ip.rep * 1000) + "m"}\n` : ""}${c.kind === "laps" ? `🔁 一圈 ${c.loopKm.toFixed(2)} km,${r.input.minutes} 分鐘:` + lapTable(c, r.paces || [], r.input.minutes || 50).map(x => `${x.name} ${x.laps} 圈`).join("、") + "\n" : ""}${c.places && c.places[0] ? `☕ 跑完:${c.places.filter(p => p.open !== false).slice(0, 2).map(p => p.name).join("、")}\n` : ""}${g ? "導航到集合點:" + g + "\n" : ""}${gmapsRoute(c) ? "Google 地圖整條路線:" + gmapsRoute(c) + "\n" : ""}完整路線(地圖、GPX):${$("#shareUrl").value}`;
     copy(txt, "已複製,貼到群組吧");
   }
 }
