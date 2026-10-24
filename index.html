@@ -152,8 +152,9 @@ footer{color:var(--muted);font-size:12px;margin-top:24px;line-height:1.7}
           <p class="lead">說這次想練什麼。系統會依目的找起終點、挑車少的路、看那時候終點有哪些店開著,給你幾條路線,匯出到手錶或 Google 地圖就能跑。</p></div>
         <div class="modes" role="group" aria-label="模式">
           <button class="mode" type="button" data-mode="train" aria-pressed="true"><b>🏃 一起訓練</b><span>依目的規劃路線</span></button>
-          <button class="mode" type="button" data-mode="pace" aria-pressed="false"><b>🤝 配速不同</b><span>快慢一起跑,不掉隊</span></button>
+          <button class="mode" type="button" data-mode="pace" aria-pressed="false"><b>🤝 配速不同</b><span>快慢一起開始、一起結束</span></button>
         </div>
+        <div class="plan" id="modeInfo"></div>
       </section>
 
       <section class="panel stack" aria-labelledby="s1">
@@ -161,11 +162,16 @@ footer{color:var(--muted);font-size:12px;margin-top:24px;line-height:1.7}
         <div class="field"><label for="ask">用一句話說(可略過)</label>
           <div class="ask"><input type="text" id="ask" placeholder="例如:週四下班在大安跑個 6K 愛心,跑完吃拉麵"><button class="btn dark" type="button" id="askBtn">帶入</button></div>
           <span class="hint" id="askHint">會自動填好下面的選項。</span></div>
-        <div class="field"><label>目的</label><div class="chips" id="purposes" role="group" aria-label="目的"></div></div>
-        <div class="field" id="shapeField" hidden><label>圖案</label><div class="chips" id="shapes" role="group" aria-label="圖案"></div></div>
+        <div class="field"><label id="purposeLabel">目的</label><div class="chips" id="purposes" role="group" aria-label="目的"></div></div>
+        <div class="field" id="paceEndField" hidden><label>跑完去哪</label><div class="chips" id="paceEnds" role="group" aria-label="跑完去哪"></div></div>
+        <div class="field" id="shapeField" hidden><label>圖案</label><div class="chips" id="shapes" role="group" aria-label="圖案"></div>
+          <div class="row" id="shapeText" hidden style="margin-top:4px"><input type="text" id="shapeTextInput" maxlength="8" placeholder="要寫的字或 emoji,例如 2026、GO、跑、🐱" style="flex:1"><button class="btn dark" type="button" id="shapeTextBtn">產生</button></div>
+          <input type="file" id="shapeImage" accept="image/*" hidden>
+          <div class="row" style="align-items:center;gap:12px;margin-top:6px"><div id="shapePreview"></div><span class="hint" id="shapeHint">圖案越複雜,公里數要越長才畫得像。</span></div></div>
         <div class="grid2">
           <div class="field"><label for="when">時間</label><input type="datetime-local" id="when"></div>
-          <div class="field"><label for="km">想跑幾公里</label><input type="number" id="km" min="2" max="42" step="0.5" inputmode="decimal" value="6"></div>
+          <div class="field" id="kmField"><label for="km">想跑幾公里</label><input type="number" id="km" min="2" max="42" step="0.5" inputmode="decimal" value="6"></div>
+          <div class="field" id="minField" hidden><label for="minutes">一起跑幾分鐘</label><input type="number" id="minutes" min="15" max="240" step="5" inputmode="numeric" value="50"></div>
         </div>
         <div class="field"><label for="dest">想在哪一帶跑(選填)</label><input type="text" id="dest" placeholder="例如:大安森林公園、松山區、河濱">
           <span class="hint">不填的話,會找大家中間、交通方便的地方。</span></div>
@@ -209,6 +215,14 @@ footer{color:var(--muted);font-size:12px;margin-top:24px;line-height:1.7}
     <div class="field"><label for="aiKey">API Key</label><input type="password" id="aiKey" autocomplete="off"></div>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" value="clear" type="submit">清除</button><button class="btn dark" value="save" type="submit">儲存</button></div>
   </form>
+</dialog>
+<dialog id="drawDlg">
+  <div class="stack">
+    <h2>畫出你想跑的形狀</h2>
+    <p class="hint" style="margin:0">用手指或滑鼠畫一筆(可以畫好幾筆,會自動連起來)。不用畫得很精準,會配合路網調整。</p>
+    <canvas id="drawPad" width="300" height="300" style="width:100%;max-width:300px;aspect-ratio:1;align-self:center;background:var(--bg);border:1px solid var(--line);border-radius:12px;touch-action:none"></canvas>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" type="button" id="drawClear">清除</button><button class="btn ghost" type="button" id="drawCancel">取消</button><button class="btn dark" type="button" id="drawOk">用這個形狀</button></div>
+  </div>
 </dialog>
 <dialog id="sendDlg">
   <div class="stack">
@@ -379,13 +393,11 @@ way${a}[leisure=track];out geom 15;
 way${a}[leisure=park][name];out geom 40;
 node${a}[amenity~"^(cafe|restaurant|fast_food|ice_cream)$"];out 500;
 node${a}[shop~"^(bakery|coffee)$"];out 80;
-node${a}[amenity~"^(toilets|drinking_water)$"];out 200;
 node${a}[railway=station];out 80;
 node${a}[station=subway];out 80;
-way${a}[highway~"^(motorway|trunk|primary|secondary)$"];out geom 500;
-way${a}[highway~"^(cycleway|footway|path|pedestrian|living_street)$"][name];out center 150;`;
+way${a}[highway~"^(motorway|trunk|primary|secondary)$"];out geom 500;`;
   const j = await overpass(q);
-  const A = { tracks: [], parks: [], cafes: [], food: [], toilets: [], water: [], stations: [], roads: [], paths: [] };
+  const A = { tracks: [], parks: [], cafes: [], food: [], stations: [], roads: [] };
   const seenSt = new Set();
   for(const e of j.elements || []){
     const t = e.tags || {};
@@ -399,87 +411,220 @@ way${a}[highway~"^(cycleway|footway|path|pedestrian|living_street)$"][name];out 
     }
     if(!p) continue;
     const name = t["name:zh"] || t.name || "";
-    if(t.amenity === "cafe" || t.shop === "coffee" || t.shop === "bakery") A.cafes.push({ ...p, name: name || "咖啡廳", oh: t.opening_hours, kind: t.amenity || t.shop });
+    if(t.amenity === "cafe" || t.shop === "coffee" || t.shop === "bakery") A.cafes.push({ ...p, name: name || "咖啡廳", oh: t.opening_hours });
     else if(/^(restaurant|fast_food|ice_cream)$/.test(t.amenity)) A.food.push({ ...p, name: name || "餐廳", oh: t.opening_hours, cuisine: t.cuisine || "" });
-    else if(t.amenity === "toilets") A.toilets.push(p);
-    else if(t.amenity === "drinking_water") A.water.push(p);
     else if(t.railway === "station" || t.station === "subway"){ const k = name + p.lat.toFixed(3); if(!seenSt.has(k) && name){ seenSt.add(k); A.stations.push({ ...p, name }); } }
-    else if(t.highway) A.paths.push({ ...p, name, kind: t.highway });
   }
-  // 大馬路切成小段建索引
   A.roadSegs = [];
   for(const g of A.roads) for(let i = 1; i < g.length; i++) A.roadSegs.push([g[i-1], g[i]]);
   return A;
 }
 function nearRoad(p, A, o){ for(const [a, b] of A.roadSegs){ if(Math.abs(a.lat - p.lat) > .002 && Math.abs(b.lat - p.lat) > .002) continue; if(segDistKm(p, a, b, o) < 0.025) return true; } return false; }
 
-/* ================= 圖案 ================= */
-function shapePts(kind){
-  const pts = [];
-  if(kind === "heart"){ for(let i = 0; i < 18; i++){ const t = (i / 18) * 2 * Math.PI; pts.push([16 * Math.sin(t) ** 3 / 17, (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 17]); } }
-  else if(kind === "star"){ for(let i = 0; i < 10; i++){ const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.42 : 1; pts.push([r * Math.cos(a), r * Math.sin(a)]); } }
-  else if(kind === "square"){ pts.push([-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]); }
-  else { for(let i = 0; i < 14; i++){ const a = i / 14 * 2 * Math.PI; pts.push([Math.cos(a), Math.sin(a)]); } }
-  return pts;
+/* ================= 圖案 =================
+   圖案 = 單位座標(-1..1,y 向上)的折線 { pts:[[x,y]...], closed }
+   來源:內建圖案、任意文字 / emoji、手畫、上傳圖片、(選配)AI 描述 */
+const PRESETS = {
+  heart: { name: "愛心", closed: true, pts: Array.from({ length: 20 }, (_, i) => { const t = i / 20 * 2 * Math.PI; return [16 * Math.sin(t) ** 3 / 17, (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 17]; }) },
+  star: { name: "星星", closed: true, pts: Array.from({ length: 10 }, (_, i) => { const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.42 : 1; return [r * Math.cos(a), r * Math.sin(a)]; }) },
+  cat: { name: "貓咪", closed: true, pts: [[0,-.9],[.55,-.75],[.85,-.35],[.9,.1],[.8,.45],[.85,.95],[.45,.6],[0,.65],[-.45,.6],[-.85,.95],[-.8,.45],[-.9,.1],[-.85,-.35],[-.55,-.75]] },
+  dog: { name: "狗狗", closed: true, pts: [[-1,.6],[-.78,.22],[.3,.22],[.48,.42],[.5,.78],[.66,.92],[.74,.68],[1,.58],[1,.4],[.66,.32],[.62,.05],[.62,-.62],[.46,-.62],[.44,-.16],[-.44,-.16],[-.46,-.62],[-.62,-.62],[-.66,.12],[-.84,.34]] },
+  bolt: { name: "閃電", closed: true, pts: [[-.2,1],[.5,1],[.1,.2],[.6,.2],[-.4,-1],[-.05,-.1],[-.5,-.1]] },
+  circle: { name: "圓圈", closed: true, pts: Array.from({ length: 16 }, (_, i) => { const a = i / 16 * 2 * Math.PI; return [Math.cos(a), Math.sin(a)]; }) },
+};
+const SHAPE_CHIPS = [["heart","❤️ 愛心"],["cat","🐱 貓咪"],["dog","🐶 狗狗"],["star","⭐ 星星"],["bolt","⚡ 閃電"],["circle","⭕ 圓圈"],["text","🔤 寫字 / emoji"],["draw","✏️ 自己畫"],["image","🖼 上傳圖片"]];
+
+function normalizeShape(pts, closed){
+  if(pts.length < 2) return null;
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const s = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2 || 1;
+  return { pts: pts.map(([x, y]) => [(x - cx) / s, (y - cy) / s]), closed };
 }
-const SHAPE_NAME = { heart: "愛心", star: "星星", circle: "圓圈", square: "方塊" };
-function placeShape(kind, c, targetKm){
-  const u = shapePts(kind); const closed = u.concat([u[0]]);
-  let per = 0; for(let i = 1; i < closed.length; i++) per += Math.hypot(closed[i][0] - closed[i-1][0], closed[i][1] - closed[i-1][1]);
-  const s = (targetKm / 1.28) / per;
-  return u.map(([x, y]) => fromXY(x * s, y * s, c));
+/* Ramer–Douglas–Peucker 簡化 */
+function rdp(pts, eps){
+  if(pts.length < 3) return pts;
+  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
+  let idx = -1, max = 0;
+  for(let i = 1; i < pts.length - 1; i++){
+    const [px, py] = pts[i]; const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy);
+    const d = L ? Math.abs(dy * px - dx * py + bx * ay - by * ax) / L : Math.hypot(px - ax, py - ay);
+    if(d > max){ max = d; idx = i; }
+  }
+  if(max <= eps) return [pts[0], pts[pts.length - 1]];
+  return rdp(pts.slice(0, idx + 1), eps).slice(0, -1).concat(rdp(pts.slice(idx), eps));
+}
+function simplifyTo(pts, maxN){
+  let eps = 0.005, out = pts;
+  while(out.length > maxN && eps < 0.5){ out = rdp(pts, eps); eps *= 1.5; }
+  return out;
+}
+/* 二值圖 → 每個區塊的外輪廓(Moore 鄰域追蹤) */
+function traceMask(mask, w, h, minArea){
+  const lab = new Int32Array(w * h), comps = [];
+  const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && mask[y * w + x];
+  const DX = [1,1,0,-1,-1,-1,0,1], DY = [0,1,1,1,0,-1,-1,-1];
+  let label = 0;
+  for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){
+    if(!mask[y * w + x] || lab[y * w + x]) continue;
+    label++; let area = 0; const st = [[x, y]]; lab[y * w + x] = label;
+    while(st.length){ const [cx, cy] = st.pop(); area++;
+      for(let d = 0; d < 8; d += 2){ const nx = cx + DX[d], ny = cy + DY[d]; if(at(nx, ny) && !lab[ny * w + nx]){ lab[ny * w + nx] = label; st.push([nx, ny]); } } }
+    if(area < minArea) continue;
+    // 起點 (x,y) 是這塊在掃描順序中的第一個點,它的左邊一定是背景
+    const pts = [[x, y]]; let cx = x, cy = y, b = 4, guard = 0;
+    do {
+      let moved = false;
+      for(let k = 1; k <= 8; k++){
+        const d = (b + k) % 8, nx = cx + DX[d], ny = cy + DY[d];
+        if(at(nx, ny) && lab[ny * w + nx] === label){
+          const pd = (b + k - 1) % 8, bx = cx + DX[pd], by = cy + DY[pd];
+          cx = nx; cy = ny;
+          for(let q = 0; q < 8; q++) if(cx + DX[q] === bx && cy + DY[q] === by){ b = q; break; }
+          pts.push([cx, cy]); moved = true; break;
+        }
+      }
+      if(!moved) break;
+    } while(!(cx === x && cy === y) && ++guard < 40000);
+    comps.push({ pts, area, x0: Math.min(...pts.map(p => p[0])) });
+  }
+  return comps;
+}
+/* 多個輪廓接成一條路:由左到右,一個接一個 */
+function joinContours(comps, w, h){
+  comps.sort((a, b) => a.x0 - b.x0);
+  const path = [];
+  for(const c of comps){
+    let pts = c.pts.map(([x, y]) => [x / w * 2 - 1, -(y / h * 2 - 1) * (h / w)]);
+    if(path.length){ // 從離上一段終點最近的點開始繞
+      const [lx, ly] = path[path.length - 1]; let bi = 0, bd = 1e9;
+      pts.forEach(([x, y], i) => { const d = (x - lx) ** 2 + (y - ly) ** 2; if(d < bd){ bd = d; bi = i; } });
+      pts = pts.slice(bi).concat(pts.slice(0, bi));
+    }
+    pts.push(pts[0]);
+    path.push(...pts);
+  }
+  return path;
+}
+function maskFromCanvas(cv, mode){
+  const g = cv.getContext("2d"), { width: w, height: h } = cv, d = g.getImageData(0, 0, w, h).data;
+  const m = new Uint8Array(w * h); let on = 0, hasAlpha = false;
+  for(let i = 0; i < w * h; i++) if(d[i*4+3] < 250){ hasAlpha = true; break; }
+  for(let i = 0; i < w * h; i++){
+    const a = d[i*4+3], lum = (d[i*4] * 0.3 + d[i*4+1] * 0.59 + d[i*4+2] * 0.11);
+    m[i] = mode === "alpha" || hasAlpha ? (a > 110 ? 1 : 0) : (lum < 128 ? 1 : 0); on += m[i];
+  }
+  if(on > w * h * 0.6) for(let i = 0; i < w * h; i++) m[i] = 1 - m[i];   // 背景是深色的圖:反過來
+  return m;
+}
+function shapeFromCanvas(cv, maxN){
+  const m = maskFromCanvas(cv);
+  const comps = traceMask(m, cv.width, cv.height, Math.max(12, cv.width * cv.height * 0.004));
+  if(!comps.length) return null;
+  const big = comps.filter(c => c.area > comps.reduce((s, c) => Math.max(s, c.area), 0) * 0.08);
+  const path = joinContours(big, cv.width, cv.height);
+  return normalizeShape(simplifyTo(path, maxN), false);
+}
+function shapeFromText(text){
+  text = String(text || "").trim().slice(0, 8); if(!text) return null;
+  const cv = document.createElement("canvas"); const H = 110;
+  const g = cv.getContext("2d");
+  g.font = `900 ${H}px "Noto Sans TC","PingFang TC","Microsoft JhengHei","Apple Color Emoji","Segoe UI Emoji",sans-serif`;
+  const w = Math.ceil(g.measureText(text).width) + 20;
+  cv.width = w; cv.height = H + 30;
+  const g2 = cv.getContext("2d");
+  g2.font = `900 ${H}px "Noto Sans TC","PingFang TC","Microsoft JhengHei","Apple Color Emoji","Segoe UI Emoji",sans-serif`;
+  g2.textBaseline = "middle"; g2.fillStyle = "#000"; g2.fillText(text, 10, cv.height / 2);
+  const sh = shapeFromCanvas(cv, Math.min(70, 18 + text.length * 14));
+  if(sh) sh.name = `「${text}」`;
+  return sh;
+}
+async function shapeFromImage(file){
+  const url = URL.createObjectURL(file);
+  try{
+    const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const cv = document.createElement("canvas"); const s = 160 / Math.max(im.width, im.height);
+    cv.width = Math.max(8, Math.round(im.width * s)); cv.height = Math.max(8, Math.round(im.height * s));
+    const g = cv.getContext("2d"); g.drawImage(im, 0, 0, cv.width, cv.height);
+    const sh = shapeFromCanvas(cv, 45); if(sh) sh.name = "上傳的圖案"; return sh;
+  } finally { URL.revokeObjectURL(url); }
+}
+function currentShape(){
+  if(S.shape === "custom" && S.customShape) return S.customShape;
+  if(S.shape === "text") return S.customShape && S.customShape.fromText === S.shapeText ? S.customShape : null;
+  const p = PRESETS[S.shape] || PRESETS.heart;
+  return { pts: p.pts, closed: p.closed, name: p.name };
+}
+function shapeLen(sh){ let L = 0; const p = sh.closed ? sh.pts.concat([sh.pts[0]]) : sh.pts; for(let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i-1][0], p[i][1] - p[i-1][1]); return L; }
+function placeShape(sh, c, targetKm, scale = 1){
+  const s = (targetKm / 1.3) / shapeLen(sh) * scale;
+  const pts = sh.pts.map(([x, y]) => fromXY(x * s, y * s, c));
+  return sh.closed ? pts.concat([pts[0]]) : pts;
+}
+function shapeSVG(sh, size = 120){
+  if(!sh) return "";
+  const p = (sh.closed ? sh.pts.concat([sh.pts[0]]) : sh.pts).map(([x, y]) => `${(size/2 + x * size * 0.42).toFixed(1)},${(size/2 - y * size * 0.42).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true"><rect width="${size}" height="${size}" rx="12" fill="var(--bg)"/><polyline points="${p}" fill="none" stroke="var(--route)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
 }
 
 /* ================= 規劃 ================= */
 const PURPOSES = [["interval","⚡ 間歇跑"],["art","🎨 跑圖案"],["coffee","☕ 跑完喝咖啡"],["food","🍜 跑完吃東西"],["easy","🌿 輕鬆聊天跑"],["long","🏁 長距離"]];
-const SHAPES = [["heart","❤️ 愛心"],["star","⭐ 星星"],["circle","⭕ 圓圈"],["square","⬛ 方塊"]];
+const PACE_PURPOSES = [["laps","🔁 同一圈各跑各的"],["together","👥 全程一起跑"]];
 const MOODS = [["ok","🙂 普通",0],["tired","😴 有點累",20],["great","🔥 很好",-10],["sore","🤕 不太舒服",30]];
+const TOL = 0.5, TOL_MAX = 1.0;   // 長度誤差:目標 ±0.5 km,最多 ±1 km
 
 function trafficLevel(pct){ return pct < 0.12 ? ["低","lvl-low"] : pct < 0.28 ? ["中","lvl-mid"] : ["高","lvl-high"]; }
 
-function evaluate(c, A, o, when){
+function evaluate(c, A, o){
   const s = resample(c.pts, 0.05);
   let near = 0; for(const p of s) if(nearRoad(p, A, o)) near++;
   c.traffic = s.length ? near / s.length : 0;
-  const cnt = (list, d) => list.filter(q => s.some(p => Math.abs(p.lat - q.lat) < .003 && km(p, q) < d)).length;
-  c.toilets = cnt(A.toilets, 0.15); c.water = cnt(A.water, 0.15);
-  c.km = c.km || pathKm(c.pts);
   if(c.shape){
-    const shp = c.shape.concat([c.shape[0]]); let dev = 0;
+    const shp = c.shape; let dev = 0;
     for(const p of s){ let best = 1e9; for(let i = 1; i < shp.length; i++) best = Math.min(best, segDistKm(p, shp[i-1], shp[i], o)); dev += best; }
-    const size = Math.max(...c.shape.map(p => km(p, centroid(c.shape)))) || 1;
-    c.fidelity = clamp(1 - (dev / s.length) / (size * 0.35), 0, 1);
+    const cc = centroid(shp); const size = Math.max(...shp.map(p => km(p, cc))) || 1;
+    c.fidelity = clamp(1 - (dev / s.length) / (size * 0.3), 0, 1);
   }
+}
+
+/* 依實際長度反覆縮放,直到誤差在 TOL 內 */
+async function fitRoute(makePts, target, maxIter = 4){
+  let scale = 1, best = null;
+  for(let i = 0; i < maxIter; i++){
+    let r; try{ r = await route(makePts(scale)); } catch(e){ break; }
+    const err = r.km - target;
+    if(!best || Math.abs(err) < Math.abs(best.err)) best = { ...r, err, scale };
+    if(Math.abs(err) <= TOL) break;
+    scale *= clamp(target / r.km, 0.55, 1.7);
+  }
+  return best && Math.abs(best.err) <= TOL_MAX ? best : null;
 }
 
 function placesNear(list, p, d, when){
   return list.map(q => ({ ...q, d: km(p, q), open: openAt(q.oh, when) })).filter(q => q.d <= d)
     .sort((a, b) => (b.open === true) - (a.open === true) || (a.open === false) - (b.open === false) || a.d - b.d);
 }
-function bestEndClusters(list, when, n){
-  const scored = list.map(p => { let sc = 0;
+function bestEndClusters(list, when, n, meet, maxKm){
+  const scored = list.filter(p => km(p, meet) * 1.15 <= maxKm).map(p => { let sc = 0;
     for(const q of list){ if(Math.abs(q.lat - p.lat) > .004) continue; if(km(p, q) < 0.3){ const o = openAt(q.oh, when); sc += o === true ? 1 : o === null ? 0.35 : 0; } }
     return { p, sc }; }).sort((a, b) => b.sc - a.sc);
   const out = [];
   for(const s of scored){ if(out.length >= n) break; if(out.every(x => km(x.p, s.p) > 0.6)) out.push(s); }
   return out;
 }
-function pickVia(from, to, budget, A, o, avoid = []){
-  const opts = A.parks.concat(A.tracks.map(t => ({ name: t.name, c: t.c }))).map(pk => ({ name: pk.name, p: pk.c }));
-  let best = null;
-  for(const v of opts){
-    if(avoid.some(a => km(a, v.p) < 0.4)) continue;
-    const d = km(from, v.p) + km(v.p, to); const err = Math.abs(d - budget);
-    if(!best || err < best.err) best = { ...v, err };
-  }
-  if(best && best.err < budget * 0.35) return best;
-  // 沒有合適的公園:在兩點中垂線上找一個點
+/* 兩點之間繞出指定長度:在中垂線上找一點(scale 調整繞多遠),side 決定往哪邊繞 */
+function detourPoint(from, to, budget, o, side = 1){
   const [fx, fy] = toXY(from, o), [tx, ty] = toXY(to, o);
   const mx = (fx + tx) / 2, my = (fy + ty) / 2, half = Math.hypot(tx - fx, ty - fy) / 2;
-  const h = Math.sqrt(Math.max(0, (budget / 2) ** 2 - half ** 2));
-  let nx = -(ty - fy), ny = tx - fx; const L = Math.hypot(nx, ny) || 1; nx /= L; ny /= L;
-  if(!half){ nx = 0; ny = 1; }
-  return { name: "", p: fromXY(mx + nx * h, my + ny * h, o) };
+  const h = Math.sqrt(Math.max(0.01, (budget / 2) ** 2 - half ** 2));
+  let nx = -(ty - fy), ny = tx - fx; const L = Math.hypot(nx, ny);
+  if(L < 1e-6){ nx = 0; ny = 1; } else { nx /= L; ny /= L; }
+  return fromXY(mx + nx * h * side, my + ny * h * side, o);
+}
+/* 從 meet 出發的三角形環線(朝 angle 方向),周長約 budget */
+function triangleLoop(meet, budget, angle, o){
+  const s = budget / 3, a1 = angle - Math.PI / 6, a2 = angle + Math.PI / 6;
+  return [meet, fromXY(Math.cos(a1) * s, Math.sin(a1) * s, meet), fromXY(Math.cos(a2) * s, Math.sin(a2) * s, meet), meet];
 }
 function intervalPlan(totalKm, lapKm){
   const warm = totalKm >= 8 ? 2 : 1.5, cool = totalKm >= 8 ? 1.5 : 1;
@@ -489,6 +634,10 @@ function intervalPlan(totalKm, lapKm){
   const rest = rep <= 0.4 ? "60–90 秒" : rep <= 0.8 ? "90 秒" : "2 分鐘";
   const laps = lapKm ? Math.round(rep / lapKm * 10) / 10 : null;
   return { warm, cool, rep, n, rest, laps };
+}
+function groupPace(people){
+  const ps = people.filter(p => p.pace).map(p => p.pace + ((MOODS.find(m => m[0] === p.mood) || [0,0,0])[2]));
+  return ps.length ? Math.max(...ps) : null;
 }
 
 async function plan(input, onStep){
@@ -500,139 +649,139 @@ async function plan(input, onStep){
   if(input.dest.trim()){ onStep("找想跑的地區…"); dest = await geocode(input.dest, input.city); }
   if(!people.length && !dest) throw new Error("至少填一個人的出發地,或想跑的地區。");
   const mid = dest || centroid(people.map(p => p.ll));
-  const target = clamp(+input.km || 6, 2, 42);
-  const radius = clamp(target * 450 + 1200, 2000, 9000);
+  const isPace = input.mode === "pace";
+  const P = isPace ? input.pacePurpose : input.purpose;
+  const gp = groupPace(input.people) || 390;
+  const target = isPace && P === "laps" ? 1.5 : clamp(+input.km || 6, 2, 42);
+  const radius = clamp((isPace ? 4 : target) * 450 + 1200, 2000, 9000);
   onStep("看看附近有什麼:公園、跑道、店家、大馬路…");
   const A = await loadArea(mid, radius);
   const o = mid;
 
-  // 集合點:想跑的地區 > 中間點附近的捷運站 > 中間點
   let meet;
   const nearSt = A.stations.slice().sort((a, b) => km(a, mid) - km(b, mid))[0];
   if(dest) meet = { ...dest, name: dest.name };
   else if(nearSt && km(nearSt, mid) < 1.5) meet = { lat: nearSt.lat, lng: nearSt.lng, name: nearSt.name + "站" };
   else meet = { ...mid, name: "大家的中間點" };
-  if(input.purpose === "interval" && !dest){
+  if(P === "interval" && !dest){
     const t = A.tracks.slice().sort((a, b) => km(a.c, mid) - km(b.c, mid))[0];
     if(t && km(t.c, mid) < 2.5) meet = { ...t.c, name: t.name };
   }
 
   const cands = [];
-  const P = input.purpose;
-  onStep("排路線中…");
+  onStep("排路線中,並調整到你要的長度…");
+  const add = (c, r) => cands.push({ ...c, pts: r.pts, km: r.km, err: r.err });
+
   if(P === "interval"){
-    const tracks = A.tracks.filter(t => t.lap > 0.2 && t.lap < 0.6).sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 2);
-    for(const t of tracks){
-      const ip = intervalPlan(target, t.lap);
-      const loop = t.geom.concat([t.geom[0]]);
-      cands.push({ kind: "track", title: t.name, sub: `${Math.round(t.lap * 1000)} m 跑道`, pts: loop, km: target, isTrack: true, ip, lapKm: t.lap, meet: t.c, end: t.c });
+    for(const t of A.tracks.filter(t => t.lap > 0.2 && t.lap < 0.6).sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 2)){
+      cands.push({ kind: "track", title: t.name, sub: `${Math.round(t.lap * 1000)} m 跑道`, pts: t.geom.concat([t.geom[0]]), km: target, err: 0, isTrack: true, ip: intervalPlan(target, t.lap), lapKm: t.lap, meet: t.c, end: t.c });
     }
-    const parks = A.parks.filter(p => p.perim > 0.8 && p.perim < 3.5).sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 2);
-    for(const pk of parks){
-      try{ const r = await route(pk.geom.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 10)) === 0).concat([pk.geom[0]]));
-        cands.push({ kind: "park", title: pk.name, sub: `公園一圈 ${r.km.toFixed(1)} km`, pts: r.pts, km: r.km, ip: intervalPlan(target, null), loopKm: r.km, meet: r.pts[0], end: r.pts[0] }); }
-      catch(e){}
+    for(const pk of A.parks.filter(p => p.perim > 0.8 && p.perim < 3.5).sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 2)){
       if(cands.length >= 3) break;
+      try{ const r = await route(pk.geom.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 10)) === 0).concat([pk.geom[0]]));
+        cands.push({ kind: "park", title: pk.name, sub: `繞公園,一圈 ${r.km.toFixed(1)} km`, pts: r.pts, km: target, err: 0, loopKm: r.km, ip: intervalPlan(target, null), meet: r.pts[0], end: r.pts[0] }); }
+      catch(e){}
     }
   } else if(P === "art"){
-    const kinds = input.shape && input.shape !== "auto" ? [input.shape] : ["heart", "star"];
+    const sh = input.shapeData;
+    if(!sh) throw new Error("先選一個圖案,或輸入要寫的字。");
     const centers = [];
     for(const c of [{ name: meet.name, p: meet }].concat(A.parks.slice().sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 4).map(pk => ({ name: pk.name, p: pk.c }))))
       if(centers.length < 3 && centers.every(x => km(x.p, c.p) > 0.5 && x.name !== c.name)) centers.push(c);
-    let tries = 0;
-    for(const k of kinds) for(const c of centers){
-      if(tries++ >= 4) break;
-      const shape = placeShape(k, c.p, target);
-      try{ const r = await route(shape.concat([shape[0]]));
-        if(r.km > target * 2.2) continue;
-        cands.push({ kind: "art", title: `${SHAPE_NAME[k]} · ${c.name}`, sub: SHAPE_NAME[k], pts: r.pts, km: r.km, shape, shapeKind: k, meet: r.pts[0], end: r.pts[r.pts.length - 1] }); }
+    for(const c of centers){
+      const r = await fitRoute(scale => placeShape(sh, c.p, target, scale), target, 4);
+      if(!r) continue;
+      add({ kind: "art", title: `${sh.name || "圖案"} · ${c.name}`, sub: sh.name || "圖案", shape: placeShape(sh, c.p, target, r.scale), shapeName: sh.name, meet: r.pts[0], end: r.pts[r.pts.length - 1] }, r);
+    }
+  } else if(P === "coffee" || P === "food" || (isPace && P === "together" && input.paceEnd !== "loop")){
+    const list = P === "food" || input.paceEnd === "food" ? A.food : A.cafes;
+    const kind = P === "food" || input.paceEnd === "food" ? "food" : "coffee";
+    for(const e of bestEndClusters(list, when, 3, meet, target + TOL)){
+      const end = e.p;
+      let best = null;
+      for(const side of [1, -1]){
+        const r = await fitRoute(scale => km(meet, end) * 1.2 >= target * scale ? [meet, end] : [meet, detourPoint(meet, end, (target / 1.25) * scale, o, side), end], target, 4);
+        if(r && (!best || Math.abs(r.err) < Math.abs(best.err))) best = r;
+        if(best && Math.abs(best.err) <= TOL) break;
+      }
+      if(!best) continue;
+      const near = placesNear(list, end, 0.35, when).slice(0, 6);
+      const area = near.find(x => x.name && !/^(咖啡廳|餐廳)$/.test(x.name));
+      add({ kind, title: `終點:${area ? area.name + " 一帶" : "店家聚集處"}`, sub: "跑完直接進店", places: near, meet, end: best.pts[best.pts.length - 1] }, best);
+    }
+  } else if(isPace && P === "laps"){
+    // 同一圈各跑各的:找 1–2.5 km 的環線(公園或附近街區),大家繞同一圈
+    for(const pk of A.parks.filter(p => p.perim > 0.9 && p.perim < 2.6).sort((a, b) => km(a.c, meet) - km(b.c, meet)).slice(0, 2)){
+      try{ const r = await route(pk.geom.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 10)) === 0).concat([pk.geom[0]]));
+        if(r.km < 0.8 || r.km > 3) continue;
+        cands.push({ kind: "laps", title: `繞 ${pk.name}`, sub: `一圈 ${r.km.toFixed(2)} km`, pts: r.pts, km: r.km, err: 0, loopKm: r.km, meet: r.pts[0], end: r.pts[0] }); }
       catch(e){}
     }
-  } else if(P === "coffee" || P === "food"){
-    const list = P === "coffee" ? A.cafes : A.food;
-    const ends = bestEndClusters(list, when, 3);
-    for(const e of ends){
-      const end = e.p;
-      const budget = target / 1.25;
-      try{
-        let r;
-        if(km(meet, end) >= budget * 0.85) r = await route([meet, end]);
-        else { const v = pickVia(meet, end, budget, A, o); r = await route([meet, v.p, end]); r.via = v.name; }
-        const near = placesNear(list, end, 0.35, when).slice(0, 6);
-        const area = near.find(x => x.name && !/^(咖啡廳|餐廳)$/.test(x.name));
-        cands.push({ kind: P, title: `終點:${area ? area.name + " 一帶" : end.name}`, sub: r.via ? `經過 ${r.via}` : "直達", pts: r.pts, km: r.km, places: near, meet, end: r.pts[r.pts.length - 1], via: r.via });
-      }catch(e){}
+    for(let k = 0; cands.length < 3 && k < 3; k++){
+      const r = await fitRoute(scale => triangleLoop(meet, 1.5 / 1.25 * scale, k * 2.1, o), 1.5, 3);
+      if(r && !cands.some(c => Math.abs(c.loopKm - r.km) < 0.15)) cands.push({ kind: "laps", title: "集合點附近繞一圈", sub: `一圈 ${r.km.toFixed(2)} km`, pts: r.pts, km: r.km, err: 0, loopKm: r.km, meet, end: meet });
     }
   }
-  if(!cands.length || P === "easy" || P === "long"){
-    if(cands.length === 0 && P !== "easy" && P !== "long") onStep("這一帶比較少相關地點,改排繞圈路線…");
-    await loops(cands, meet, target, A, o, P);
+  if(!cands.length || P === "easy" || P === "long" || (isPace && P === "together" && input.paceEnd === "loop")){
+    if(!cands.length && !["easy", "long", "together", "laps"].includes(P)) onStep("這一帶比較少相關地點,改排繞圈路線…");
+    const dirs = A.parks.slice().sort((a, b) => Math.abs(km(a.c, meet) - target / 3.6) - Math.abs(km(b.c, meet) - target / 3.6)).slice(0, 2)
+      .map(pk => Math.atan2(...toXY(pk.c, meet).reverse())).concat([0.3, 2.4, 4.4]);
+    for(const ang of dirs){
+      if(cands.length >= 3) break;
+      const r = await fitRoute(scale => triangleLoop(meet, (target / 1.25) * scale, ang, o), target, 4);
+      if(!r || cands.some(c => Math.abs(c.km - r.km) < 0.2 && km(resample(c.pts, 0.5)[1] || c.pts[0], resample(r.pts, 0.5)[1] || r.pts[0]) < 0.3)) continue;
+      const near = A.parks.filter(pk => r.pts.some(p => Math.abs(p.lat - pk.c.lat) < .004 && km(p, pk.c) < 0.25)).map(pk => pk.name).slice(0, 2);
+      const far = r.pts.reduce((a, p) => km(p, meet) > km(a, meet) ? p : a, r.pts[0]);
+      const [fx, fy] = toXY(far, meet); const dir = ["東","東北","北","西北","西","西南","南","東南"][((Math.round(Math.atan2(fy, fx) / (Math.PI / 4)) % 8) + 8) % 8];
+      add({ kind: P === "long" ? "long" : "easy", title: (near.length ? "經過 " + near.join("、") : "集合點出發繞一圈"), sub: `往${dir}繞一圈回來`, meet, end: meet }, r);
+    }
   }
-  if(!cands.length) throw new Error("這一帶找不到合適的路線。試試換個地區、改公里數,或換個目的。");
-  onStep("評估車流、廁所、店家…");
-  for(const c of cands) if(!c.isTrack) evaluate(c, A, o, when); else { c.traffic = 0; c.toilets = A.toilets.filter(t => km(t, c.meet) < 0.3).length; c.water = A.water.filter(t => km(t, c.meet) < 0.3).length; }
-
-  // 分數
+  if(!cands.length) throw new Error(P === "art" ? "這一帶排不出夠像的圖案,試試換地區、改公里數,或換一個比較簡單的圖案。" : "這一帶排不出長度剛好的路線,試試換個地區或改公里數。");
+  onStep("評估車流、店家…");
+  for(const c of cands){ if(c.isTrack) c.traffic = 0; else evaluate(c, A, o); }
   for(const c of cands){
-    let sc = 100 - Math.abs(c.km - target) / target * 60 - c.traffic * 80 + Math.min(c.toilets, 2) * 4 + Math.min(c.water, 2) * 2;
-    if(c.fidelity != null) sc += c.fidelity * 40;
+    let sc = 100 - Math.abs(c.err || 0) * 30 - (c.traffic || 0) * 80;
+    if(c.fidelity != null) sc += c.fidelity * 50;
     if(c.places) sc += Math.min(c.places.filter(x => x.open === true).length, 5) * 5;
     if(c.isTrack) sc += 25 - km(c.meet, mid) * 6;
+    if(c.kind === "laps") sc -= km(c.meet, meet) * 10;
     c.score = sc;
   }
   cands.sort((a, b) => b.score - a.score);
   const top = cands.slice(0, 3);
-  // 每個人到集合點
-  for(const c of top){
-    c.people = people.map(p => ({ name: p.name, d: km(p.ll, c.meet || meet) }));
-    c.reasons = reasons(c, input, A, when, target, people);
-  }
-  return { meet, people: people.map(p => ({ name: p.name, ll: { lat: p.ll.lat, lng: p.ll.lng }, pace: p.pace, mood: p.mood })), cands: top, when: when.getTime(), purpose: P, target };
+  for(const c of top) c.reasons = reasons(c, input, when, target, people, gp);
+  return { meet, people: people.map(p => ({ name: p.name, ll: { lat: p.ll.lat, lng: p.ll.lng }, pace: p.pace, mood: p.mood })), cands: top, when: when.getTime(), purpose: P, target, minutes: input.minutes };
 }
 
-/* 從集合點出發,經過 1–2 個公園或河濱,繞一圈回來 */
-async function loops(cands, meet, target, A, o, P){
-  const budget = target / 1.22;
-  const used = [];
-  for(let k = 0; k < 3 && cands.length < 3; k++){
-    try{
-      const v1 = pickVia(meet, meet, budget * 0.66, A, o, used);
-      used.push(v1.p);
-      const v2 = pickVia(v1.p, meet, budget * 0.5, A, o, used);
-      used.push(v2.p);
-      const r = await route([meet, v1.p, v2.p, meet]);
-      if(cands.some(c => Math.abs(c.km - r.km) < 0.3)) continue;
-      cands.push({ kind: P === "long" ? "long" : "easy", title: [v1.name, v2.name].filter(Boolean).join(" → ") || "附近繞一圈", sub: "繞一圈回到集合點", pts: r.pts, km: r.km, meet, end: meet });
-    }catch(e){}
-  }
+/* 同一圈各跑各的:每個人在時間內跑幾圈 */
+function lapTable(c, people, minutes){
+  return people.filter(p => p.pace).map(p => {
+    const pace = p.pace + ((MOODS.find(m => m[0] === p.mood) || [0,0,0])[2]);
+    const dist = minutes * 60 / pace;
+    return { name: p.name, pace, dist, laps: Math.floor(dist / c.loopKm * 2) / 2 };
+  }).sort((a, b) => b.dist - a.dist);
 }
 
-function groupPace(people){
-  const ps = people.filter(p => p.pace).map(p => p.pace + ((MOODS.find(m => m[0] === p.mood) || [0,0,0])[2]));
-  return ps.length ? Math.max(...ps) : null;
-}
-
-function reasons(c, input, A, when, target, people){
+function reasons(c, input, when, target, people, gp){
   const r = [];
   const hh = `${when.getHours()}:${String(when.getMinutes()).padStart(2, "0")}`;
-  if(c.isTrack){
-    r.push(`${c.title} 是標準跑道,一圈約 ${Math.round(c.lapKm * 1000)} m,間歇最好算距離,也不用閃車。`);
-  } else if(c.kind === "park" && input.purpose === "interval"){
-    r.push(`繞 ${c.title} 一圈 ${c.loopKm.toFixed(1)} km,不用過馬路,適合「快跑一段、慢跑一段」。`);
+  if(c.isTrack) r.push(`${c.title} 是標準跑道,一圈約 ${Math.round(c.lapKm * 1000)} m,間歇最好算距離,也不用閃車。`);
+  else if(c.kind === "park" && input.purpose === "interval") r.push(`繞 ${c.title} 一圈 ${c.loopKm.toFixed(1)} km,不用過馬路,適合「快跑一段、慢跑一段」。`);
+  if(c.kind === "laps") r.push(`大家繞同一圈,一圈 ${c.loopKm.toFixed(2)} km,每圈都會回到集合點。快的人多跑幾圈,慢的人少跑幾圈,時間到一起結束。`);
+  if(!c.isTrack && c.kind !== "laps" && c.kind !== "park"){
+    const e = c.err || 0;
+    r.push(`長度 ${c.km.toFixed(1)} km,${Math.abs(e) <= 0.15 ? "剛好是" : e > 0 ? `比你要的 ${target} km 多 ${e.toFixed(1)} km` : `比你要的 ${target} km 少 ${(-e).toFixed(1)} km`}。`);
   }
-  if(c.fidelity != null) r.push(`照著路網跑,${SHAPE_NAME[c.shapeKind]}的還原度約 ${Math.round(c.fidelity * 100)}%${c.fidelity < 0.6 ? ",形狀會有點歪,可以試試換地方" : ""}。`);
+  if(c.fidelity != null) r.push(`照著路網跑,${c.shapeName || "圖案"}的還原度約 ${Math.round(c.fidelity * 100)}%${c.fidelity < 0.55 ? ",形狀會有點歪,可以試試換地方或改公里數(越長越像)" : ""}。`);
   if(!c.isTrack){
-    const [lv] = trafficLevel(c.traffic);
-    r.push(`約 ${Math.round(c.traffic * 100)}% 的路段貼著大馬路(車多程度:${lv})${c.traffic < 0.12 ? ",大多是巷弄、公園或河濱" : ",過馬路時要多注意"}。`);
+    const [lv] = trafficLevel(c.traffic || 0);
+    r.push(`約 ${Math.round((c.traffic || 0) * 100)}% 的路段貼著大馬路(車多程度:${lv})${(c.traffic || 0) < 0.12 ? ",大多是巷弄、公園或河濱" : ",過馬路時要多注意"}。`);
   }
   if(c.places){
     const open = c.places.filter(x => x.open === true).length, unk = c.places.filter(x => x.open == null).length;
     r.push(`終點附近 350 m 有 ${c.places.length} 家${c.kind === "coffee" ? "咖啡廳" : "吃的"},${hh} 確定有開的 ${open} 家${unk ? `,另外 ${unk} 家沒有營業時間資料` : ""}。`);
   }
-  const fac = [];
-  if(c.toilets) fac.push(`${c.toilets} 個廁所`); if(c.water) fac.push(`${c.water} 個飲水機`);
-  if(fac.length) r.push(`路線旁有 ${fac.join("、")}。`);
-  if(Math.abs(c.km - target) / target > 0.2 && !c.isTrack) r.push(`這條是 ${c.km.toFixed(1)} km,跟你想跑的 ${target} km 有點差距,可以多繞或少繞一段。`);
+  if(input.mode === "pace" && input.pacePurpose === "together") r.push(`全程用團體配速 ${fmtPace(gp)}/km 一起跑(以最慢的人、加上今天狀態來算),每 2 km 在等人點集合一次。`);
   if(people.length > 1){
     const ds = people.map(p => km(p.ll, c.meet || p.ll)); const mx = Math.max(...ds), mn = Math.min(...ds);
     r.push(`大家到集合點的直線距離 ${mn.toFixed(1)}–${mx.toFixed(1)} km${mx - mn < 2 ? ",還算公平" : ""}。`);
@@ -654,12 +803,13 @@ async function aiChat(prompt, maxTokens = 300){
 function parseAskLocal(t){
   const o = {};
   if(/間歇|interval|操場|跑道|配速課/i.test(t)) o.purpose = "interval";
-  else if(/愛心|心型|heart|星星|star|圓|方塊|圖案|跑圖|gps ?art/i.test(t)) o.purpose = "art";
+  else if(/愛心|心型|heart|星星|star|圓|貓|狗|閃電|圖案|跑圖|gps ?art/i.test(t)) o.purpose = "art";
   else if(/咖啡|coffee|cafe|早午餐|甜點|麵包/i.test(t)) o.purpose = "coffee";
   else if(/吃|拉麵|晚餐|宵夜|美食|小吃|火鍋|燒肉|food|dinner/i.test(t)) o.purpose = "food";
   else if(/長距|LSD|半馬|全馬|long/i.test(t)) o.purpose = "long";
   else if(/輕鬆|聊天|慢跑|easy/i.test(t)) o.purpose = "easy";
-  if(/愛心|心型|heart/i.test(t)) o.shape = "heart"; else if(/星/i.test(t)) o.shape = "star"; else if(/圓/.test(t)) o.shape = "circle"; else if(/方塊|方形/.test(t)) o.shape = "square";
+  if(/愛心|心型|heart/i.test(t)) o.shape = "heart"; else if(/貓|cat/i.test(t)) o.shape = "cat"; else if(/狗|dog/i.test(t)) o.shape = "dog"; else if(/閃電/.test(t)) o.shape = "bolt"; else if(/星/i.test(t)) o.shape = "star"; else if(/圓/.test(t)) o.shape = "circle";
+  const wr = t.match(/(?:寫|畫|跑出)\s*[「『"“]?([A-Za-z0-9\u4e00-\u9fff♥]{1,8}?)[」』"”]?\s*(?:的字|字|的形狀|$|\s)/); if(wr && !/[公里分鐘]/.test(wr[1]) && !/^(個|一)/.test(wr[1])){ if(/^\d{2,}$|^[A-Za-z]{2,}$/.test(wr[1]) || /字/.test(wr[0])){ o.shape = "text"; o.shapeText = wr[1]; o.purpose = "art"; } }
   const k = t.match(/(\d+(?:\.\d+)?)\s*(?:k|K|公里|km)/); if(k) o.km = +k[1];
   const d = t.match(/(?:在|到|去)([\u4e00-\u9fffA-Za-z0-9]{2,12}?)(?:附近|一帶|周邊|跑|集合|$)/); if(d && !/哪/.test(d[1])) o.dest = d[1];
   const now = new Date(), wd = "日一二三四五六";
@@ -678,12 +828,13 @@ async function parseAsk(t){
   try{
     const now = new Date();
     const txt = await aiChat(`今天是 ${toLocalInput(now)}(${"日一二三四五六"[now.getDay()]})。把這句跑步邀約轉成 JSON,只回 JSON:
-{"purpose":"interval|art|coffee|food|easy|long","shape":"heart|star|circle|square|null","km":數字或null,"dest":"地名或null","when":"YYYY-MM-DDTHH:MM 或 null"}
+{"purpose":"interval|art|coffee|food|easy|long","shape":"heart|cat|dog|star|bolt|circle|text|null","shapeText":"要寫的字或null","km":數字或null,"dest":"地名或null","when":"YYYY-MM-DDTHH:MM 或 null"}
 句子:${t}`, 120);
     const m = txt.match(/\{[\s\S]*\}/); const j = m ? JSON.parse(m[0]) : {};
     const o = { ...local };
     if(PURPOSES.some(p => p[0] === j.purpose)) o.purpose = j.purpose;
-    if(SHAPES.some(s => s[0] === j.shape)) o.shape = j.shape;
+    if(SHAPE_CHIPS.some(s => s[0] === j.shape)) o.shape = j.shape;
+    if(j.shape === "text" && j.shapeText && j.shapeText !== "null") o.shapeText = String(j.shapeText).slice(0, 8);
     if(+j.km > 1 && +j.km < 50) o.km = +j.km;
     if(j.dest && j.dest !== "null") o.dest = String(j.dest).slice(0, 30);
     if(j.when && /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(j.when)) o.when = j.when;
@@ -700,21 +851,38 @@ async function aiSummary(c, input){
 /* ================= 狀態 / 輸入 ================= */
 const pLabel = k => (PURPOSES.find(p => p[0] === k) || [k, k])[1];
 function toLocalInput(d){ return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
-const S = store.get("input", null) || {
-  mode: "train", purpose: "coffee", shape: "heart", km: 6, dest: "", city: "台北",
+const S_DEFAULT = {
+  mode: "train", purpose: "coffee", shape: "heart", shapeText: "2026", customShape: null, km: 6, dest: "", city: "台北",
+  pacePurpose: "laps", paceEnd: "loop", minutes: 50,
   when: (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(19, 30, 0, 0); return toLocalInput(d); })(),
   people: [{ name: "我", from: "", pace: "", mood: "ok" }, { name: "", from: "", pace: "", mood: "ok" }]
 };
+const S = Object.assign({}, S_DEFAULT, store.get("input", {}) || {});
+if(!PRESETS[S.shape] && !["text", "custom"].includes(S.shape)) S.shape = "heart";
 let RESULT = null, SEL = 0, SHARED = false;
 
 function save(){ store.set("input", S); }
 function renderInputs(){
   document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === S.mode)));
-  $("#purposes").innerHTML = PURPOSES.map(([k, l]) => `<button type="button" class="chip" data-purpose="${k}" aria-pressed="${S.purpose === k}">${l}</button>`).join("");
-  $("#shapes").innerHTML = SHAPES.map(([k, l]) => `<button type="button" class="chip" data-shape="${k}" aria-pressed="${S.shape === k}">${l}</button>`).join("");
-  $("#shapeField").hidden = S.purpose !== "art";
-  $("#when").value = S.when; $("#km").value = S.km; $("#dest").value = S.dest; $("#city").value = S.city;
   const pace = S.mode === "pace";
+  $("#modeInfo").innerHTML = pace
+    ? `<b>🤝 配速不同:一起開始、一起結束</b>大家配速差很多也沒關係。<b style="display:inline">同一圈各跑各的</b>:繞同一個 1–2 km 的圈,快的人多跑幾圈,時間到在集合點會合,會列出每個人跑幾圈。<b style="display:inline">全程一起跑</b>:用最慢的人的配速(加上今天狀態)一起跑,每 2 km 有等人點。下面要填每個人的配速。`
+    : `<b>🏃 一起訓練:依目的規劃路線</b>你們想練什麼(間歇、跑圖案、跑完喝咖啡……),就依那個目的找起終點、挑車少的路、看那時候店家有沒有開,給你 2–3 條長度剛好的路線。`;
+  $("#purposeLabel").textContent = pace ? "怎麼一起跑" : "目的";
+  $("#purposes").innerHTML = (pace ? PACE_PURPOSES : PURPOSES).map(([k, l]) => `<button type="button" class="chip" data-purpose="${k}" aria-pressed="${(pace ? S.pacePurpose : S.purpose) === k}">${l}</button>`).join("");
+  $("#paceEndField").hidden = !(pace && S.pacePurpose === "together");
+  $("#paceEnds").innerHTML = [["loop","🔄 繞一圈回來"],["coffee","☕ 跑到咖啡廳"],["food","🍜 跑到吃的"]].map(([k, l]) => `<button type="button" class="chip" data-paceend="${k}" aria-pressed="${S.paceEnd === k}">${l}</button>`).join("");
+  const art = !pace && S.purpose === "art";
+  $("#shapeField").hidden = !art;
+  $("#shapes").innerHTML = SHAPE_CHIPS.map(([k, l]) => `<button type="button" class="chip" data-shape="${k}" aria-pressed="${S.shape === k || (k === "draw" || k === "image") && S.shape === "custom" && S.customShape && S.customShape.src === k}">${l}</button>`).join("");
+  $("#shapeText").hidden = S.shape !== "text";
+  $("#shapeTextInput").value = S.shapeText || "";
+  const sh = art ? currentShape() : null;
+  $("#shapePreview").innerHTML = sh ? shapeSVG(sh, 96) : "";
+  $("#shapeHint").textContent = sh ? `${sh.name || "圖案"}:圖案越複雜,公里數要越長才畫得像。${S.shape === "text" && /[\u4e00-\u9fff]/.test(S.shapeText || "") ? "中文字筆畫多,跑出來比較難認,數字或英文會清楚很多。" : ""}` : S.shape === "text" ? "輸入文字後按「產生」。數字和英文最好認,例如 2026、GO、TPE。" : "";
+  const laps = pace && S.pacePurpose === "laps";
+  $("#kmField").hidden = laps; $("#minField").hidden = !laps;
+  $("#when").value = S.when; $("#km").value = S.km; $("#dest").value = S.dest; $("#city").value = S.city; $("#minutes").value = S.minutes;
   $("#people").innerHTML = S.people.map((p, i) => `<div class="person">
       <div class="no" style="color:${COLORS[i % COLORS.length]}">${i + 1}</div>
       <div><div class="f"><input type="text" data-p="${i}" data-k="name" value="${esc(p.name)}" placeholder="名字" aria-label="名字">
@@ -726,13 +894,18 @@ function renderInputs(){
 document.addEventListener("input", e => {
   const t = e.target;
   if(t.dataset.p != null){ S.people[+t.dataset.p][t.dataset.k] = t.value; save(); return; }
-  if(["when", "km", "dest", "city"].includes(t.id)){ S[t.id] = t.id === "km" ? +t.value : t.value; save(); }
+  if(["when", "km", "dest", "city", "minutes"].includes(t.id)){ S[t.id] = t.id === "km" || t.id === "minutes" ? +t.value : t.value; save(); }
 });
 document.addEventListener("change", e => { const t = e.target; if(t.dataset.p != null){ S.people[+t.dataset.p][t.dataset.k] = t.value; save(); } });
 document.addEventListener("click", e => {
   const m = e.target.closest("[data-mode]"); if(m){ S.mode = m.dataset.mode; save(); renderInputs(); return; }
-  const p = e.target.closest("[data-purpose]"); if(p){ S.purpose = p.dataset.purpose; save(); renderInputs(); return; }
-  const s = e.target.closest("[data-shape]"); if(s){ S.shape = s.dataset.shape; save(); renderInputs(); return; }
+  const p = e.target.closest("[data-purpose]"); if(p){ if(S.mode === "pace") S.pacePurpose = p.dataset.purpose; else S.purpose = p.dataset.purpose; save(); renderInputs(); return; }
+  const pe = e.target.closest("[data-paceend]"); if(pe){ S.paceEnd = pe.dataset.paceend; save(); renderInputs(); return; }
+  const s = e.target.closest("[data-shape]");
+  if(s){ const k = s.dataset.shape;
+    if(k === "draw"){ openDraw(); return; }
+    if(k === "image"){ $("#shapeImage").click(); return; }
+    S.shape = k; if(k === "text" && S.shapeText && !(S.customShape && S.customShape.fromText === S.shapeText)) makeTextShape(); save(); renderInputs(); return; }
   const rm = e.target.closest("[data-rm]"); if(rm){ S.people.splice(+rm.dataset.rm, 1); if(!S.people.length) S.people.push({ name: "", from: "", pace: "", mood: "ok" }); save(); renderInputs(); return; }
   const c = e.target.closest("[data-cand]"); if(c){ SEL = +c.dataset.cand; renderResult(); return; }
   const a = e.target.closest("[data-act]"); if(a){ act(a.dataset.act); return; }
@@ -745,22 +918,66 @@ $("#askBtn").addEventListener("click", async () => {
   const t = $("#ask").value.trim(); if(!t) return;
   $("#askBtn").disabled = true;
   try{ const o = await parseAsk(t);
-    for(const k of ["purpose", "shape", "km", "dest", "when"]) if(o[k] != null) S[k] = o[k];
+    for(const k of ["purpose", "shape", "shapeText", "km", "dest", "when"]) if(o[k] != null) S[k] = o[k];
+    if(o.purpose) S.mode = "train";
     save(); renderInputs();
-    const got = [o.purpose && pLabel(o.purpose), o.shape && SHAPE_NAME[o.shape], o.km && o.km + " km", o.dest, o.when && o.when.replace("T", " ")].filter(Boolean);
+    if(o.shape === "text" && o.shapeText){ $("#shapeTextInput").value = o.shapeText; makeTextShape(); }
+    const got = [o.purpose && pLabel(o.purpose), o.shape && (o.shape === "text" ? `寫「${o.shapeText}」` : (PRESETS[o.shape] || {}).name), o.km && o.km + " km", o.dest, o.when && o.when.replace("T", " ")].filter(Boolean);
     $("#askHint").textContent = got.length ? `已帶入:${got.join("、")}${o.by === "ai" ? "(AI)" : ""}` : "看不太懂,請直接點下面的選項。";
   } finally { $("#askBtn").disabled = false; }
+});
+
+/* ================= 圖案工具:寫字、手畫、上傳 ================= */
+function makeTextShape(){
+  const t = ($("#shapeTextInput").value || S.shapeText || "").trim(); if(!t) return toast("先輸入要寫的字");
+  const sh = shapeFromText(t);
+  if(!sh) return toast("這幾個字畫不出來,換一個試試");
+  sh.fromText = t; S.shapeText = t; S.customShape = sh; S.shape = "text"; save(); renderInputs();
+}
+$("#shapeTextBtn").addEventListener("click", makeTextShape);
+$("#shapeTextInput").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); makeTextShape(); } });
+$("#shapeImage").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ""; if(!f) return;
+  try{ const sh = await shapeFromImage(f); if(!sh) return toast("這張圖找不到明顯的形狀,換一張背景單純的圖試試");
+    sh.src = "image"; S.customShape = sh; S.shape = "custom"; save(); renderInputs(); toast("已轉成路線形狀"); }
+  catch(err){ toast("讀不到這張圖"); }
+});
+let strokes = [];
+function openDraw(){ strokes = []; drawPadRender(); $("#drawDlg").showModal(); }
+function drawPadRender(){
+  const cv = $("#drawPad"), g = cv.getContext("2d"); g.clearRect(0, 0, cv.width, cv.height);
+  g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--route").trim() || "#2149D1"; g.lineWidth = 5; g.lineJoin = g.lineCap = "round";
+  for(const st of strokes){ g.beginPath(); st.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }
+}
+(() => {
+  const cv = $("#drawPad"); let cur = null;
+  const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * cv.width, (e.clientY - r.top) / r.height * cv.height]; };
+  cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); cur = [pt(e)]; strokes.push(cur); });
+  cv.addEventListener("pointermove", e => { if(!cur) return; const p = pt(e), l = cur[cur.length - 1]; if(Math.hypot(p[0] - l[0], p[1] - l[1]) > 3){ cur.push(p); drawPadRender(); } });
+  cv.addEventListener("pointerup", () => { cur = null; });
+})();
+$("#drawClear").addEventListener("click", () => { strokes = []; drawPadRender(); });
+$("#drawCancel").addEventListener("click", () => $("#drawDlg").close());
+$("#drawOk").addEventListener("click", () => {
+  const pts = []; for(const st of strokes) pts.push(...st.map(([x, y]) => [x, -y]));
+  if(pts.length < 4) return toast("畫長一點再按");
+  const first = pts[0], last = pts[pts.length - 1];
+  const closed = Math.hypot(first[0] - last[0], first[1] - last[1]) < 30;
+  const sh = normalizeShape(simplifyTo(pts.map(([x, y]) => [x / 150, y / 150]), 40), closed);
+  sh.name = "自己畫的形狀"; sh.src = "draw";
+  S.customShape = sh; S.shape = "custom"; save(); renderInputs(); $("#drawDlg").close();
 });
 
 /* ================= 產生 ================= */
 $("#go").addEventListener("click", async () => {
   const people = S.people.map(p => ({ name: p.name.trim() || "跑友", from: p.from, pace: parsePace(p.pace), mood: p.mood }));
-  const input = { ...S, people };
+  const input = { ...S, people, shapeData: S.mode !== "pace" && S.purpose === "art" ? currentShape() : null };
+  if(S.mode === "pace" && !people.some(p => p.pace)){ $("#err").textContent = "配速不同模式要填每個人的配速(例如 6:30)。"; $("#err").hidden = false; return; }
   $("#go").disabled = true; $("#err").hidden = true; $("#progress").hidden = false;
   try{
     const r = await plan(input, t => { $("#progressText").textContent = t; });
-    r.input = { mode: S.mode, purpose: S.purpose, shape: S.shape, km: S.km, when: S.when, dest: S.dest, title: titleFor(S) };
-    if(S.mode === "pace") r.groupPace = groupPace(people);
+    r.input = { mode: S.mode, purpose: S.purpose, pacePurpose: S.pacePurpose, paceEnd: S.paceEnd, minutes: S.minutes, shape: S.shape, km: S.km, when: S.when, dest: S.dest, title: titleFor(S) };
+    if(S.mode === "pace"){ r.groupPace = groupPace(people); r.paces = people.map(p => ({ name: p.name, pace: p.pace, mood: p.mood })); }
     RESULT = r; SEL = 0; SHARED = false; document.body.classList.remove("shared"); $("#sharedBanner").hidden = true;
     for(const c of r.cands) c.ai = null;
     renderResult();
@@ -771,8 +988,10 @@ $("#go").addEventListener("click", async () => {
     $("#err").hidden = false;
   }finally{ $("#go").disabled = false; $("#progress").hidden = true; }
 });
-function titleFor(s){ const d = new Date(s.when); const wd = "日一二三四五六"[d.getDay()];
-  return `${isNaN(d) ? "" : `週${wd} `}${pLabel(s.purpose).replace(/^\S+\s/, "")}${s.purpose === "art" ? "·" + SHAPE_NAME[s.shape] : ""} ${s.km}K`; }
+function titleFor(s){ const d = new Date(s.when); const day = isNaN(d) ? "" : `週${"日一二三四五六"[d.getDay()]} `;
+  if(s.mode === "pace") return s.pacePurpose === "laps" ? `${day}同一圈各跑各的 ${s.minutes} 分鐘` : `${day}全程一起跑 ${s.km}K`;
+  const sh = s.purpose === "art" ? currentShape() : null;
+  return `${day}${pLabel(s.purpose).replace(/^\S+\s/, "")}${sh ? "·" + (sh.name || "") : ""} ${s.km}K`; }
 
 /* ================= 地圖 ================= */
 let map = null, layer = null;
@@ -790,7 +1009,7 @@ function drawMap(r, c){
   layer.clearLayers();
   const css = getComputedStyle(document.documentElement);
   const routeColor = css.getPropertyValue("--route").trim() || "#2149D1";
-  if(c.shape) L.polygon(c.shape.map(p => [p.lat, p.lng]), { color: "#E3402A", weight: 2, dashArray: "6 6", fill: false }).addTo(layer);
+  if(c.shape) L.polyline(c.shape.map(p => [p.lat, p.lng]), { color: "#E3402A", weight: 2, dashArray: "6 6" }).addTo(layer);
   L.polyline(c.pts.map(p => [p.lat, p.lng]), { color: "#fff", weight: 9, opacity: .9 }).addTo(layer);
   const line = L.polyline(c.pts.map(p => [p.lat, p.lng]), { color: routeColor, weight: 5 }).addTo(layer);
   const meet = c.meet || r.meet;
@@ -826,34 +1045,42 @@ function renderResult(){
   if(!r){ $("#cands").innerHTML = ""; $("#detail").innerHTML = `<div class="banner">填好左邊,按「產生建議路線」。會給你 2–3 條路線,地圖、距離、車多不多、終點有哪些店開著,都會列在這裡。</div>`; $("#map").innerHTML = mapPlaceholder(); return; }
   const c = r.cands[SEL] || r.cands[0];
   $("#cands").innerHTML = r.cands.map((x, i) => `<button type="button" class="cand" data-cand="${i}" aria-pressed="${i === SEL}">
-      <span class="k">路線 ${"ABC"[i]}${i === 0 ? " · 推薦" : ""}</span><b>${esc(x.title)}</b><span>${x.isTrack ? esc(x.sub) : x.km.toFixed(1) + " km · " + esc(x.sub)}</span></button>`).join("");
+      <span class="k">路線 ${"ABC"[i]}${i === 0 ? " · 推薦" : ""}</span><b>${esc(x.title)}</b><span>${x.isTrack || x.kind === "laps" ? esc(x.sub) : x.km.toFixed(1) + " km · " + esc(x.sub)}</span></button>`).join("");
   drawMap(r, c);
   const pace = r.groupPace || 390;
   const dist = c.isTrack ? r.target : c.km;
   const [lv, lvc] = trafficLevel(c.traffic || 0);
   const ip = c.ip;
-  const regroup = r.input.mode === "pace" && !c.isTrack ? resample(c.pts, 2).slice(1, -1) : [];
+  const isLaps = c.kind === "laps";
+  const regroup = r.input.mode === "pace" && r.input.pacePurpose === "together" && !c.isTrack ? resample(c.pts, 2).slice(1, -1) : [];
   const gUrl = gmaps(c);
+  const lt = isLaps ? lapTable(c, r.paces || [], r.input.minutes || 50) : [];
+  const extraStat = isLaps ? `<div class="stat"><b>${lt.length ? `${lt[lt.length - 1].laps}–${lt[0].laps}` : "—"}</b><small>每人圈數</small></div>`
+    : c.fidelity != null ? `<div class="stat"><b>${Math.round(c.fidelity * 100)}%</b><small>形狀還原度</small></div>`
+    : c.places ? `<div class="stat"><b>${c.places.filter(x => x.open === true).length}</b><small>終點那時有開的店</small></div>`
+    : `<div class="stat"><b>${Math.abs(c.err || 0) <= 0.15 ? "剛好" : (c.err > 0 ? "+" : "−") + Math.abs(c.err).toFixed(1)}</b><small>跟目標差幾 km</small></div>`;
   $("#detail").innerHTML = `
     ${c.ai ? `<div class="plan"><b>介紹</b>${esc(c.ai)}</div>` : ""}
     <div class="stats">
-      <div class="stat"><b>${dist.toFixed(1)}<small style="font-size:15px"> km</small></b><small>${c.isTrack ? "總量(含暖身收操)" : "路線長度"}</small></div>
-      <div class="stat"><b>${fmtDur(dist * pace / 60)}</b><small>${r.groupPace ? "以團體配速 " + fmtPace(r.groupPace) : "以 6'30\"/km 估"}</small></div>
+      <div class="stat"><b>${(isLaps ? c.loopKm : dist).toFixed(isLaps ? 2 : 1)}<small style="font-size:15px"> km</small></b><small>${c.isTrack ? "總量(含暖身收操)" : isLaps ? "一圈" : "路線長度"}</small></div>
+      <div class="stat"><b>${isLaps ? (r.input.minutes || 50) + " 分" : fmtDur(dist * pace / 60)}</b><small>${isLaps ? "一起開始、一起結束" : r.groupPace ? "以團體配速 " + fmtPace(r.groupPace) : "以 6'30\"/km 估"}</small></div>
       <div class="stat"><b class="${c.isTrack ? "lvl-low" : lvc}">${c.isTrack ? "無" : lv}</b><small>車多程度</small></div>
-      <div class="stat"><b>${(c.toilets || 0) + (c.water || 0)}</b><small>廁所 / 飲水點</small></div>
+      ${extraStat}
     </div>
     ${ip ? `<div class="plan"><b>建議課表</b>暖身慢跑 ${ip.warm} km → <b style="display:inline">${ip.n} × ${ip.rep >= 1 ? ip.rep + " km" : Math.round(ip.rep * 1000) + " m"}</b>${ip.laps ? `(每趟 ${ip.laps} 圈)` : c.loopKm ? `(繞公園)` : ""},每趟之間慢跑或走路 ${ip.rest} → 收操 ${ip.cool} km。配速不同的人照自己的強度跑,同一個地方繞,誰也不會落單。</div>` : ""}
-    ${r.input.mode === "pace" && r.groupPace ? `<div class="plan"><b>團體配速 ${fmtPace(r.groupPace)}/km</b>以最慢、加上今天狀態來算。${regroup.length ? `每 2 km 停下來等一下(共 ${regroup.length} 個等人點,地圖上看得到)。` : ""}</div>` : ""}
+    ${isLaps && lt.length ? `<div class="plan"><b>每個人跑幾圈(${r.input.minutes || 50} 分鐘)</b><div class="places">${lt.map(x => `<div class="place"><span>${esc(x.name)} <span class="hint">${fmtPace(x.pace)}/km</span></span><span class="st"><b>${x.laps} 圈</b> · 約 ${x.dist.toFixed(1)} km</span></div>`).join("")}</div><span class="hint">大家同時從集合點出發,時間到在集合點會合。快的人會「套圈」超過慢的人,剛好每圈打個招呼。水和外套放在集合點就好。</span></div>` : ""}
+    ${r.input.mode === "pace" && r.input.pacePurpose === "together" && r.groupPace ? `<div class="plan"><b>團體配速 ${fmtPace(r.groupPace)}/km</b>以最慢的人、加上今天狀態來算,快的人陪跑當作恢復跑。${regroup.length ? `每 2 km 停下來等一下(共 ${regroup.length} 個等人點,地圖上看得到)。` : ""}</div>` : ""}
     <div><div class="eyebrow" style="margin-bottom:4px">為什麼選這條</div><ul class="why">${c.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
     ${c.places && c.places.length ? `<div><div class="eyebrow" style="margin-bottom:4px">終點附近</div><div class="places">${c.places.map(pl => `<div class="place"><span>${esc(pl.name)}${pl.cuisine ? ` <span class="hint">${esc(pl.cuisine.split(";")[0])}</span>` : ""}</span><span class="st ${pl.open === true ? "lvl-low" : pl.open === false ? "hint" : "lvl-mid"}">${pl.open === true ? "那時有開" : pl.open === false ? "那時沒開" : "時間未知"} · ${Math.round(pl.d * 1000)} m</span></div>`).join("")}</div></div>` : ""}
     <div class="row">
       <button class="btn primary" type="button" data-act="gpx">下載 GPX(手錶 / Strava)</button>
-      ${gUrl ? `<a class="btn dark" href="${esc(gUrl)}" target="_blank" rel="noopener">開 Google 地圖</a>` : ""}
+      ${gUrl ? `<a class="btn dark" href="${esc(gUrl)}" target="_blank" rel="noopener">導航到集合點</a>` : ""}
       <button class="btn ghost" type="button" data-act="copy">複製給群組</button>
     </div>
     <div class="field"><label for="shareUrl">分享連結(大家點開就看得到同一份路線,不用登入)</label>
       <div class="share"><input type="text" id="shareUrl" readonly value=""><button class="btn dark" type="button" data-act="share">複製</button></div></div>
-    <p class="hint" style="margin:0">GPX 可以匯入 Garmin Connect、COROS、Suunto、Komoot、WorkOutDoors 等,手錶會帶路。Strava 能不能直接匯入路線,要看你的方案和版本。</p>
+    <details class="hint"><summary>怎麼照著這條路線跑?</summary>
+      <p style="margin:6px 0 0">• <b>手錶</b>:下載 GPX,匯入 Garmin Connect、COROS、Suunto、Komoot 或 WorkOutDoors,手錶會帶路。<br>• <b>Google 地圖看完整路線</b>:Google 地圖的導航會自己重新算路,所以不會跟這裡一樣。要看一模一樣的路線,打開 <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener">Google My Maps</a> → 建立新地圖 → 匯入 → 選這個 GPX 檔,手機的 Google 地圖「已儲存」裡也看得到。<br>• <b>Strava</b>:能不能直接匯入路線,要看你的方案和版本。<br>「導航到集合點」按鈕只負責帶你到起點。</p></details>
     ${dayPanel(r, c)}`;
   if(regroup.length && map) regroup.forEach((p, i) => L.marker([p.lat, p.lng], { icon: pinIcon("等", "#D4890F") }).addTo(layer).bindTooltip(`等人點 ${i + 1}(${(i + 1) * 2} km)`));
   makeShareLink().then(u => { const el = $("#shareUrl"); if(el) el.value = u; });
@@ -865,13 +1092,8 @@ function mapPlaceholder(){
     <text x="320" y="370" text-anchor="middle" font-size="15" fill="var(--muted)" font-weight="700">路線會畫在這裡</text></svg>`;
 }
 function gmaps(c){
-  const pts = c.isTrack ? [c.meet] : resample(c.pts, Math.max(0.3, c.km / 9));
-  const ok = pts.filter(valid); if(!ok.length) return null;
-  const ll = p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
-  if(ok.length === 1) return `https://www.google.com/maps/search/?api=1&query=${ll(ok[0])}`;
-  const last = c.end || ok[ok.length - 1];
-  const mids = ok.slice(1, -1).slice(0, 8);
-  return `https://www.google.com/maps/dir/?api=1&origin=${ll(ok[0])}&destination=${ll(last)}${mids.length ? "&waypoints=" + encodeURIComponent(mids.map(ll).join("|")) : ""}&travelmode=walking`;
+  const m = c.meet || (RESULT && RESULT.meet) || c.pts[0]; if(!valid(m)) return null;
+  return `https://www.google.com/maps/dir/?api=1&destination=${m.lat.toFixed(6)},${m.lng.toFixed(6)}`;
 }
 function gpxText(c, title){
   const x = s => String(s || "").replace(/[<>&"']/g, ch => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&apos;"}[ch]));
@@ -901,7 +1123,7 @@ async function act(a){
   if(a === "share") copy($("#shareUrl").value, "連結已複製,貼到群組吧");
   if(a === "copy"){
     const d = new Date(r.when); const g = gmaps(c);
-    const txt = `🏃 ${r.input.title}\n🕖 ${d.getMonth() + 1}/${d.getDate()}(${"日一二三四五六"[d.getDay()]})${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}\n📍 集合:${(c.isTrack ? c.title : (r.meet.name || "地圖上的集合點"))}\n🗺 ${c.title}${c.isTrack ? "" : `,${c.km.toFixed(1)} km`}\n${c.ip ? `⚡ ${c.ip.n} × ${c.ip.rep >= 1 ? c.ip.rep + "km" : Math.round(c.ip.rep * 1000) + "m"}\n` : ""}${c.places && c.places[0] ? `☕ 跑完:${c.places.filter(p => p.open !== false).slice(0, 2).map(p => p.name).join("、")}\n` : ""}${g ? "Google 地圖:" + g + "\n" : ""}完整路線:${$("#shareUrl").value}`;
+    const txt = `🏃 ${r.input.title}\n🕖 ${d.getMonth() + 1}/${d.getDate()}(${"日一二三四五六"[d.getDay()]})${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}\n📍 集合:${(c.isTrack ? c.title : (r.meet.name || "地圖上的集合點"))}\n🗺 ${c.title}${c.isTrack ? "" : `,${c.km.toFixed(1)} km`}\n${c.ip ? `⚡ ${c.ip.n} × ${c.ip.rep >= 1 ? c.ip.rep + "km" : Math.round(c.ip.rep * 1000) + "m"}\n` : ""}${c.kind === "laps" ? `🔁 一圈 ${c.loopKm.toFixed(2)} km,${r.input.minutes} 分鐘:` + lapTable(c, r.paces || [], r.input.minutes || 50).map(x => `${x.name} ${x.laps} 圈`).join("、") + "\n" : ""}${c.places && c.places[0] ? `☕ 跑完:${c.places.filter(p => p.open !== false).slice(0, 2).map(p => p.name).join("、")}\n` : ""}${g ? "導航到集合點:" + g + "\n" : ""}完整路線(地圖、GPX):${$("#shareUrl").value}`;
     copy(txt, "已複製,貼到群組吧");
   }
 }
@@ -999,11 +1221,11 @@ const r5 = p => ({ lat: Math.round(p.lat * 1e5) / 1e5, lng: Math.round(p.lng * 1
 async function makeShareLink(){
   const r = RESULT; if(!r) return "";
   const thin = pts => pts.length > 400 ? pts.filter((_, i) => i % Math.ceil(pts.length / 400) === 0 || i === pts.length - 1) : pts;
-  const data = { v: 1, i: r.input, w: r.when, t: r.target, g: r.groupPace || null, m: { ...r5(r.meet), name: r.meet.name },
+  const data = { v: 2, i: r.input, w: r.when, t: r.target, g: r.groupPace || null, ps: r.paces || null, m: { ...r5(r.meet), name: r.meet.name },
     pp: r.people.map(p => ({ n: p.name, lat: Math.round(p.ll.lat * 100) / 100, lng: Math.round(p.ll.lng * 100) / 100 })),  // 出發地只留到約 1 km,保護隱私
     c: r.cands.map(c => ({ ti: c.title, su: c.sub, k: c.kind, km: +c.km.toFixed(2), tr: c.isTrack ? 1 : 0, lap: c.lapKm || null, lk: c.loopKm || null,
       p: encPoly(thin(c.pts)), sh: c.shape ? encPoly(c.shape) : null, sk: c.shapeKind || null, me: c.meet ? r5(c.meet) : null, en: c.end ? r5(c.end) : null,
-      tf: +(c.traffic || 0).toFixed(3), to: c.toilets || 0, wa: c.water || 0, fi: c.fidelity == null ? null : +c.fidelity.toFixed(2), ip: c.ip || null,
+      tf: +(c.traffic || 0).toFixed(3), er: +(c.err || 0).toFixed(2), sn: c.shapeName || null, fi: c.fidelity == null ? null : +c.fidelity.toFixed(2), ip: c.ip || null,
       rs: c.reasons, ai: c.ai || null,
       pl: (c.places || []).slice(0, 6).map(p => ({ n: p.name, ...r5(p), o: p.open, d: +p.d.toFixed(3), cu: p.cuisine || "" })) })) };
   const s = await packStr(JSON.stringify(data));
@@ -1013,15 +1235,15 @@ async function loadShared(){
   const h = location.hash; if(!h.startsWith("#r=")) return false;
   try{
     const d = JSON.parse(await unpackStr(h.slice(3)));
-    RESULT = { input: d.i, when: d.w, target: d.t, groupPace: d.g, meet: d.m, people: d.pp.map(p => ({ name: p.n, ll: { lat: p.lat, lng: p.lng } })),
+    RESULT = { input: d.i, when: d.w, target: d.t, groupPace: d.g, paces: d.ps || null, meet: d.m, people: d.pp.map(p => ({ name: p.n, ll: { lat: p.lat, lng: p.lng } })),
       cands: d.c.map(c => ({ title: c.ti, sub: c.su, kind: c.k, km: c.km, isTrack: !!c.tr, lapKm: c.lap, loopKm: c.lk, pts: decPoly(c.p), shape: c.sh ? decPoly(c.sh) : null, shapeKind: c.sk,
-        meet: c.me, end: c.en, traffic: c.tf, toilets: c.to, water: c.wa, fidelity: c.fi, ip: c.ip, reasons: c.rs || [], ai: c.ai,
+        meet: c.me, end: c.en, traffic: c.tf, err: c.er || 0, shapeName: c.sn, fidelity: c.fi, ip: c.ip, reasons: c.rs || [], ai: c.ai,
         places: (c.pl || []).map(p => ({ name: p.n, lat: p.lat, lng: p.lng, open: p.o, d: p.d, cuisine: p.cu })) })) };
     SHARED = true; SEL = 0; document.body.classList.add("shared");
     const dt = new Date(d.w);
     $("#sharedBanner").innerHTML = `朋友分享的路線:<b>${esc(d.i.title || "一起跑")}</b> · ${dt.getMonth() + 1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2, "0")}。想自己規劃,改左邊的設定再按「產生建議路線」。`;
     $("#sharedBanner").hidden = false;
-    Object.assign(S, { mode: d.i.mode || "train", purpose: d.i.purpose, shape: d.i.shape || "heart", km: d.i.km, when: d.i.when, dest: d.i.dest || "" });
+    Object.assign(S, { mode: d.i.mode || "train", purpose: d.i.purpose || S.purpose, pacePurpose: d.i.pacePurpose || S.pacePurpose, paceEnd: d.i.paceEnd || S.paceEnd, minutes: d.i.minutes || S.minutes, km: d.i.km, when: d.i.when, dest: d.i.dest || "" });
     return true;
   }catch(e){ console.warn(e); return false; }
 }
