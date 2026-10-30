@@ -1092,6 +1092,7 @@ function renderResult(){
       <button class="btn primary" type="button" data-act="gpx">下載 GPX(手錶 / Strava)</button>
       ${gRoute ? `<a class="btn dark" href="${esc(gRoute)}" target="_blank" rel="noopener">在 Google 地圖看整條路線</a>` : ""}
       ${gUrl ? `<a class="btn" href="${esc(gUrl)}" target="_blank" rel="noopener">導航到集合點</a>` : ""}
+      <button class="btn" type="button" data-act="img">存成分享圖</button>
       <button class="btn ghost" type="button" data-act="copy">複製給群組</button>
     </div>
     <div class="field"><label for="shareUrl">分享連結(大家點開就看得到同一份路線,不用登入)</label>
@@ -1150,6 +1151,90 @@ ${pts.map(p => `<trkpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"></trk
 </trkseg></trk>
 </gpx>`;
 }
+/* 分享圖:1080×1920(IG 限動)直接在 canvas 畫,不用地圖圖磚 */
+async function shareImage(r, c, title){
+  try{ await document.fonts.ready; }catch(_){}
+  const W = 1080, H = 1920, M = 90, INK = "#131613", BLUE = "#2149D1", RED = "#E3402A", MUTE = "#6b6f68";
+  const SANS = `"Noto Sans TC",-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif`;
+  const NUM = `"Barlow Condensed","Noto Sans TC",-apple-system,"PingFang TC",sans-serif`;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d");
+  g.fillStyle = "#F6F1E7"; g.fillRect(0, 0, W, H);
+  g.strokeStyle = "rgba(19,22,19,.05)"; g.lineWidth = 2;
+  for(let x = 0; x <= W; x += 60){ g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for(let y = 0; y <= H; y += 60){ g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  g.fillStyle = RED; g.fillRect(M, 96, 72, 10);
+  g.textBaseline = "alphabetic"; g.textAlign = "left";
+  const wrap = (txt, maxW, maxLines) => {
+    const lines = []; let cur = "";
+    for(const ch of Array.from(String(txt))){
+      if(g.measureText(cur + ch).width > maxW && cur){ lines.push(cur); cur = ch; } else cur += ch;
+    }
+    if(cur) lines.push(cur);
+    if(lines.length > maxLines){ let l = lines[maxLines - 1]; while(l && g.measureText(l + "…").width > maxW) l = l.slice(0, -1); lines.length = maxLines; lines[maxLines - 1] = l + "…"; }
+    return lines;
+  };
+  // 標題
+  let fs = 68; g.fillStyle = INK; g.font = `900 ${fs}px ${SANS}`;
+  let tl = wrap(title, W - 2 * M, 3);
+  if(tl.length > 2){ fs = 56; g.font = `900 ${fs}px ${SANS}`; tl = wrap(title, W - 2 * M, 3); }
+  let y = 190; tl.forEach(t => { g.fillText(t, M, y); y += fs * 1.28; });
+  // 日期時間
+  const d = new Date(r.when);
+  const when = `${d.getMonth() + 1}/${d.getDate()}(${"日一二三四五六"[d.getDay()]})${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  g.fillStyle = RED; g.font = `800 84px ${NUM}`; y += 34; g.fillText(when, M, y);
+  // 路線(正方形區域)
+  const AX = M, AY = Math.max(y + 60, 430), AS = 900;
+  const pts = (c.pts || []).filter(valid), shp = (c.shape || []).filter(valid);
+  if(pts.length > 1){
+    const all = pts.concat(shp), o = centroid(all), XY = all.map(p => toXY(p, o));
+    const xs = XY.map(a => a[0]), ys = XY.map(a => a[1]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    const PAD = 70, s = (AS - 2 * PAD) / Math.max(maxX - minX, maxY - minY, .2);
+    const T = p => { const [x, yy] = toXY(p, o); return [AX + AS / 2 + (x - (minX + maxX) / 2) * s, AY + AS / 2 - (yy - (minY + maxY) / 2) * s]; };
+    const path = (arr, close) => { g.beginPath(); arr.forEach((p, i) => { const [x, yy] = T(p); i ? g.lineTo(x, yy) : g.moveTo(x, yy); }); if(close) g.closePath(); };
+    g.lineJoin = "round"; g.lineCap = "round";
+    if(shp.length > 1){ g.save(); g.setLineDash([4, 22]); g.strokeStyle = "rgba(227,64,42,.55)"; g.lineWidth = 7; path(shp); g.stroke(); g.restore(); }
+    path(pts); g.strokeStyle = "#fff"; g.lineWidth = 34; g.stroke();
+    path(pts); g.strokeStyle = BLUE; g.lineWidth = 20; g.stroke();
+    const mp = c.meet || r.meet || pts[0], [mx, my] = T(mp);
+    g.beginPath(); g.arc(mx, my, 40, 0, Math.PI * 2); g.fillStyle = RED; g.fill(); g.lineWidth = 8; g.strokeStyle = "#fff"; g.stroke();
+    g.fillStyle = "#fff"; g.font = `900 40px ${SANS}`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("集", mx, my + 3);
+    g.textAlign = "left"; g.textBaseline = "alphabetic";
+  }
+  // 距離
+  const laps = c.kind === "laps";
+  const dist = laps ? c.loopKm : c.km;
+  y = AY + AS + 150;
+  g.fillStyle = INK; g.font = `800 190px ${NUM}`;
+  const ds = dist.toFixed(laps ? 2 : 1); g.fillText(ds, M, y);
+  const dw = g.measureText(ds).width;
+  g.font = `700 64px ${NUM}`; g.fillStyle = MUTE; g.fillText("KM", M + dw + 16, y);
+  const kw = g.measureText("KM").width;
+  g.font = `500 34px ${SANS}`; g.fillText(laps ? "一圈,各跑各的圈數" : c.isTrack ? "總量(含暖身收操)" : "路線長度", M + dw + 16 + kw + 24, y - 4);
+  // 圈數 / 檢查
+  const rows = [];
+  if(laps) lapTable(c, r.paces || [], r.input.minutes || 50).slice(0, 4).forEach(x => rows.push([BLUE, `${x.name}  ${x.laps} 圈 · 約 ${x.dist.toFixed(1)} km`]));
+  fitChecks(r, c).slice(0, 3).forEach(([k, t]) => rows.push([k === "lvl-low" ? "#1C8547" : k === "lvl-mid" ? "#D4890F" : RED, t.replace(/\s*[✓△✗]\s*/g, " ")]));
+  y += 70; g.font = `500 38px ${SANS}`;
+  rows.slice(0, 6).forEach(([col, t]) => {
+    g.fillStyle = col; g.beginPath(); g.arc(M + 10, y - 13, 10, 0, Math.PI * 2); g.fill();
+    g.fillStyle = INK; g.fillText(wrap(t, W - 2 * M - 40, 1)[0], M + 40, y); y += 54;
+  });
+  // 頁尾
+  g.fillStyle = MUTE; g.font = `500 32px ${SANS}`; g.textAlign = "center";
+  g.fillText("Pace Together · joojoohappy.github.io/pace-together", W / 2, H - 80);
+  const blob = await new Promise(res => cv.toBlob(res, "image/png"));
+  if(!blob) throw new Error("png");
+  const name = title.replace(/[^\w一-鿿-]+/g, "_").slice(0, 40) + ".png";
+  const file = new File([blob], name, { type: "image/png" });
+  if(matchMedia("(pointer:coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })){
+    try{ await navigator.share({ files: [file], title }); return; }catch(e){ if(e && e.name === "AbortError") return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.hidden = true; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
 function download(name, text, type){
   const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob);
   const a = document.createElement("a"); a.href = url; a.download = name; a.hidden = true; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500);
@@ -1163,6 +1248,7 @@ async function act(a){
   const r = RESULT; if(!r) return; const c = r.cands[SEL];
   const title = r.input.title + " · " + c.title;
   if(a === "gpx") download(title.replace(/[^\w\u4e00-\u9fff-]+/g, "_").slice(0, 40) + ".gpx", gpxText(c, title), "application/gpx+xml");
+  if(a === "img"){ try{ await shareImage(r, c, title); }catch(e){ toast("分享圖產生失敗"); } }
   if(a === "share") copy($("#shareUrl").value, "連結已複製,貼到群組吧");
   if(a === "copy"){
     const d = new Date(r.when); const g = gmaps(c);
